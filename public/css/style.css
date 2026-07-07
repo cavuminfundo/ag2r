@@ -970,9 +970,24 @@ body {
   font-family: var(--font-sans);
 }
 
-.macro-chip .material-symbols-rounded {
+.macro-chip-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.macro-chip-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.macro-chip-icon .material-symbols-rounded {
   font-size: 14px;
   color: var(--accent, #7c9cff);
+}
+
+.macro-chip-name {
+  font-weight: 500;
 }
 
 .macro-chip .macro-remove {

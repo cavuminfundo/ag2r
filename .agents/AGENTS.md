@@ -12,9 +12,9 @@ There are two sides of AG2R. One side is an end-user facing product where users 
 > until startup is complete.** Reading files before syncing means reading
 > stale code. No exceptions.
 
-Run the dev setup script:
+Run the dev setup script from the repository root:
 
-    ~/Workspace/ag2r/_tools/setup-dev.sh
+    ./_tools/setup-dev.sh
 
 This handles everything: base branch detection, sync, dependency install,
 `_tools/` copy, and `.env` creation with a free port. The script is

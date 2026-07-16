@@ -107,6 +107,9 @@ let isInputBoxHidden = false;   // Synced from server-side detection (AG's input
 
 // Subagent info panel (cannot prompt message + overview button)
 const subagentInfo = document.getElementById('subagent-info');
+
+// Side Question (BTW) panel
+const btwPanel = document.getElementById('btw-panel');
 // Deferred sidebar open: set true when user clicks a task name.
 // loadSnapshot checks this flag after detecting subagent vs command view.
 
@@ -146,13 +149,16 @@ if (_urlParams.get('sidebar') === 'open') {
 // Updates --input-bar-height CSS variable so quick-actions and scroll-fab
 // float above the input bar regardless of its height (future: thumbnails, tasks bar).
 if (typeof ResizeObserver !== 'undefined') {
-  const inputBarObserver = new ResizeObserver(entries => {
-    for (const entry of entries) {
-      const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.target.offsetHeight;
-      document.documentElement.style.setProperty('--input-bar-height', h + 'px');
-    }
-  });
-  inputBarObserver.observe(inputBar);
+  const bottomBarWrapper = document.getElementById('bottom-bar-wrapper');
+  if (bottomBarWrapper) {
+    const inputBarObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.target.offsetHeight;
+        document.documentElement.style.setProperty('--input-bar-height', h + 'px');
+      }
+    });
+    inputBarObserver.observe(bottomBarWrapper);
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -461,7 +467,17 @@ async function loadSnapshot() {
         inputBar.appendChild(movedWrapper);
       }
 
+      // Skip innerHTML replacement while user is actively scrolling an inner
+      // container (touch + momentum). Missing a 1-2s update is fine; destroying
+      // the DOM mid-scroll kills momentum and feels glitchy.
+      if (_innerScrollTouchActive) {
+        console.debug('[InnerScroll] skipping render — touch active');
+        return;
+      }
+
+      saveInnerScrollPositions(chatContent);
       chatContent.innerHTML = data.html;
+      restoreInnerScrollPositions(chatContent);
       hideEmptyState();
 
       // If this is the new session page, process captured HTML and overlay AG2R's input form
@@ -499,6 +515,19 @@ async function loadSnapshot() {
         chatArea.classList.remove('subagent-view');
         subagentInfo.classList.add('hidden');
         subagentInfo.dataset.lastHtml = '';
+      }
+
+      // Render captured Side Question (BTW) panel
+      if (btwPanel) {
+        if (data.btwHtml && data.btwHtml !== btwPanel.dataset.lastHtml) {
+          btwPanel.dataset.lastHtml = data.btwHtml;
+          btwPanel.innerHTML = data.btwHtml;
+          addClickProxyHandlers(btwPanel);
+        }
+        btwPanel.classList.toggle('hidden', !data.btwHtml);
+        if (!data.btwHtml) {
+          btwPanel.dataset.lastHtml = '';
+        }
       }
 
 
@@ -554,15 +583,22 @@ async function loadSnapshot() {
       if (allBtns.length > 0) {
         // Options to hide from dropdown menus (e.g., Rename triggers inline sidebar edit, unusable in AG2R)
         const HIDDEN_DROPDOWN_OPTIONS = /^rename$/i;
+        // Detect typeahead (items have role="option") vs kebab/context menus
+        const isTypeahead = tempDiv.querySelector('[role="option"]') !== null;
         let buttonsHtml = '';
         allBtns.forEach(btn => {
           const text = btn.textContent.trim();
           if (HIDDEN_DROPDOWN_OPTIONS.test(text)) return;
           const id = btn.dataset.agClickId;
           const label = btn.dataset.agClickLabel || text;
-          const isDestructive = /delete|remove/i.test(text);
-          const cls = isDestructive ? 'destructive' : '';
-          buttonsHtml += `<button class="${cls}" data-ag-click-id="${id}" data-ag-click-label="${label}">${text}</button>`;
+          if (isTypeahead) {
+            // Preserve inner HTML structure for typeahead items (icon + name + description spans)
+            buttonsHtml += `<div role="option" data-ag-click-id="${id}" data-ag-click-label="${label}">${btn.innerHTML}</div>`;
+          } else {
+            const isDestructive = /delete|remove/i.test(text);
+            const cls = isDestructive ? 'destructive' : '';
+            buttonsHtml += `<button class="${cls}" data-ag-click-id="${id}" data-ag-click-label="${label}">${text}</button>`;
+          }
         });
         dropdownContent.innerHTML = buttonsHtml;
         addClickProxyHandlers(dropdownContent);
@@ -930,6 +966,105 @@ async function loadSnapshot() {
 }
 
 // ─────────────────────────────────────────────
+// Inner Scroll Preservation
+// ─────────────────────────────────────────────
+// AG renders scrollable containers inside chat messages (e.g. the browser
+// preview box with max-h-[20vh] overflow-y-auto). When chatContent.innerHTML
+// is replaced, their scrollTop resets to 0. This mirrors the parent chat's
+// wasAtBottom/userScrolledAway pattern for nested scrollable containers.
+//
+// Approach: before innerHTML replacement, snapshot the scroll state of each
+// inner scrollable container. After replacement, find the same containers
+// in the new DOM and either auto-scroll to bottom (default) or restore the
+// user's scroll position (if they scrolled away from bottom).
+
+// Persistent state: tracks whether the user scrolled away in each container.
+// Keyed by a class-based signature so it survives innerHTML replacement.
+const _innerScrollState = new Map(); // key → { scrollTop, userScrolledAway }
+
+// Touch tracking: skip scroll restoration while user is actively scrolling
+// (touchstart → touchend + momentum settle), preventing innerHTML replacement
+// from killing momentum/inertia scroll.
+let _innerScrollTouchActive = false;
+let _innerScrollSettleTimer = null;
+const INNER_SCROLL_SETTLE_MS = 1200; // momentum settle time after touchend
+
+chatContent.addEventListener('touchstart', (e) => {
+  // Only track if touch started on/inside a scrollable inner container
+  const scrollable = e.target.closest('[class*="overflow-y-auto"], [class*="overflow-y-scroll"]');
+  if (scrollable && scrollable !== chatArea && chatContent.contains(scrollable)) {
+    _innerScrollTouchActive = true;
+    if (_innerScrollSettleTimer) {
+      clearTimeout(_innerScrollSettleTimer);
+      _innerScrollSettleTimer = null;
+    }
+    console.debug('[InnerScroll] touch start — pausing restore');
+  }
+}, { passive: true });
+
+chatContent.addEventListener('touchend', () => {
+  if (_innerScrollTouchActive) {
+    // Wait for momentum to settle before resuming scroll restoration
+    _innerScrollSettleTimer = setTimeout(() => {
+      _innerScrollTouchActive = false;
+      _innerScrollSettleTimer = null;
+      console.debug('[InnerScroll] momentum settled — resuming restore');
+    }, INNER_SCROLL_SETTLE_MS);
+  }
+}, { passive: true });
+
+function getScrollableContainers(root) {
+  // Find containers with AG's overflow-y-auto pattern and constrained height
+  const results = [];
+  root.querySelectorAll('[class*="overflow-y-auto"], [class*="overflow-y-scroll"]').forEach(el => {
+    if (el.scrollHeight > el.clientHeight) {
+      results.push(el);
+    }
+  });
+  return results;
+}
+
+function getContainerKey(el) {
+  // Build a key from the element's class list (stable across innerHTML swaps)
+  // plus its position index among siblings with the same classes (for duplicates)
+  const cls = (el.className || '').toString().trim();
+  let idx = 0;
+  if (el.parentElement) {
+    for (const sib of el.parentElement.children) {
+      if (sib === el) break;
+      if ((sib.className || '').toString().trim() === cls) idx++;
+    }
+  }
+  return cls + '#' + idx;
+}
+
+function saveInnerScrollPositions(container) {
+  for (const el of getScrollableContainers(container)) {
+    const key = getContainerKey(el);
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30;
+    _innerScrollState.set(key, {
+      scrollTop: el.scrollTop,
+      userScrolledAway: !nearBottom && el.scrollTop > 0,
+    });
+  }
+}
+
+function restoreInnerScrollPositions(container) {
+  for (const el of getScrollableContainers(container)) {
+    const key = getContainerKey(el);
+    const saved = _innerScrollState.get(key);
+    if (saved && saved.userScrolledAway) {
+      // User scrolled away from bottom — preserve their position
+      el.scrollTop = saved.scrollTop;
+      console.debug('[InnerScroll] restore:', key.substring(0, 40), 'scrollTop=', saved.scrollTop);
+    } else {
+      // Default: auto-scroll to bottom to show latest content
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
 // Scroll Management
 // ─────────────────────────────────────────────
 const SCROLL_THRESHOLD = 10; // px from bottom to count as "near bottom"
@@ -1078,10 +1213,11 @@ async function sendMessage() {
       const result = await res.json();
       debugLog('send', 'image-only result: ' + JSON.stringify(result));
     } else if (fullMessage) {
-      // Text (possibly with images): inject text and click send
+      // Text (possibly with images/macros): inject text and click send
+      const hasMacro = !!stagedMacro;
       const res = await fetchAPI('/send', {
         method: 'POST',
-        body: JSON.stringify({ message: fullMessage, hasImages }),
+        body: JSON.stringify({ message: fullMessage, hasImages, hasMacro }),
       });
       const result = await res.json();
       debugLog('send', 'result: ' + JSON.stringify(result));
@@ -1104,6 +1240,11 @@ async function sendMessage() {
   isSending = false;
   messageInput.disabled = false;
   actionBtn.disabled = false;
+  // Clear macro chip after send — AG's editor already has the macro applied
+  if (stagedMacro) {
+    stagedMacro = null;
+    renderMacroChip();
+  }
   debugLog('sendMessage-exit');
 }
 
@@ -1358,6 +1499,68 @@ const imagePreviewStrip = document.getElementById('image-preview-strip');
 const MAX_STAGED_IMAGES = 3;
 let stagedImages = []; // { file: File, objectUrl: string }
 
+// ── Macro Chip State (slash commands) ──
+let macroChipStrip = null;
+let stagedMacro = null; // { name: string } — only one macro at a time
+
+function getMacroChipStrip() {
+  if (!macroChipStrip) {
+    macroChipStrip = document.getElementById('macro-chip-strip');
+    if (!macroChipStrip) {
+      const wrapper = document.querySelector('.input-wrapper');
+      if (wrapper) {
+        macroChipStrip = document.createElement('div');
+        macroChipStrip.id = 'macro-chip-strip';
+        macroChipStrip.className = 'macro-chip-strip hidden';
+        const txt = document.getElementById('message-input');
+        wrapper.insertBefore(macroChipStrip, txt);
+        console.debug('[MacroChip] Strip element auto-created dynamically');
+      }
+    }
+  }
+  return macroChipStrip;
+}
+
+function renderMacroChip() {
+  const strip = getMacroChipStrip();
+  if (!strip) {
+    console.debug('[MacroChip] No macro-chip-strip element found');
+    return;
+  }
+  strip.innerHTML = '';
+  if (!stagedMacro) {
+    strip.classList.add('hidden');
+    return;
+  }
+  strip.classList.remove('hidden');
+
+  const chip = document.createElement('div');
+  chip.className = 'macro-chip';
+  // Use the captured icon SVG from the typeahead item, or fall back to a lightning bolt
+  const iconHtml = stagedMacro.iconHtml
+    || '<span class="material-symbols-rounded">bolt</span>';
+  chip.innerHTML = `
+    <span class="macro-chip-icon">${iconHtml}</span>
+    <span class="macro-chip-name">/${stagedMacro.name}</span>
+    <button class="macro-remove" aria-label="Remove macro">×</button>
+  `;
+
+  chip.querySelector('.macro-remove').addEventListener('click', async () => {
+    stagedMacro = null;
+    renderMacroChip();
+    // Clear AG's editor since the macro was the only content there
+    try {
+      const res = await fetchAPI('/clear-editor', { method: 'POST' });
+      const result = await res.json();
+      console.debug('[MacroChip] Clear result:', JSON.stringify(result));
+    } catch (err) {
+      console.debug('[MacroChip] Clear error:', err);
+    }
+  });
+
+  strip.appendChild(chip);
+}
+
 function renderImagePreviewsInto(strip, btn) {
   strip.innerHTML = '';
   if (stagedImages.length === 0) {
@@ -1417,6 +1620,10 @@ function createAttachMenu(parentEl, fileInput) {
       <span class="material-symbols-rounded">image</span>
       <span>Media</span>
     </button>
+    <button type="button" class="attach-menu-item" data-action="actions">
+      <span class="material-symbols-rounded">bolt</span>
+      <span>Actions</span>
+    </button>
   `;
   parentEl.appendChild(menu);
 
@@ -1425,6 +1632,20 @@ function createAttachMenu(parentEl, fileInput) {
     menu.classList.add('hidden');
     if (stagedImages.length >= MAX_STAGED_IMAGES) return;
     fileInput.click();
+  });
+
+  menu.querySelector('[data-action="actions"]').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    menu.classList.add('hidden');
+    console.debug('[Actions] Tapped — typing / into AG');
+    // Type "/" into AG's input to trigger slash command dropdown (without sending)
+    try {
+      const res = await fetchAPI('/type-slash', { method: 'POST' });
+      const result = await res.json();
+      console.debug('[Actions] Result:', JSON.stringify(result));
+    } catch (err) {
+      console.debug('[Actions] Error typing / into AG:', err);
+    }
   });
 
   return menu;
@@ -2032,6 +2253,9 @@ function addClickProxyHandlers(container) {
           body: JSON.stringify({ clickId, label }),
         });
         result = await res.json();
+        if (clickId.startsWith('dropdown:')) {
+          console.debug('[ClickProxy] dropdown result:', JSON.stringify(result));
+        }
 
       } catch (err) {
         debugLog('click-proxy', 'error: ' + err.message);
@@ -2060,6 +2284,29 @@ function addClickProxyHandlers(container) {
       if (clickId.startsWith('dropdown:') || clickId.startsWith('dialog:') || (clickId.startsWith('scheddlg:') && parseInt(clickId.split(':')[1], 10) >= 100)) {
         overlayDismissedAt = Date.now();
         dropdownOverlay.classList.add('hidden');
+
+        // Detect slash command selection from the overlay
+        if (label) {
+          console.debug('[MacroDetect] clickId=' + clickId + ' label="' + label + '"');
+          // Slash command labels from AG are like "grill-meInterview me to align..."
+          // The command name is lowercase+hyphens, description starts with uppercase
+          const cmdMatch = label.match(/^([a-z][a-z0-9-]*)/);
+          if (cmdMatch) {
+            const cmdName = cmdMatch[1];
+            const knownCommands = ['btw','goal','schedule','browser','grill-me','teamwork-preview','learn'];
+            console.debug('[MacroDetect] cmdName="' + cmdName + '" known=' + knownCommands.includes(cmdName));
+            if (knownCommands.includes(cmdName)) {
+              // Grab the icon SVG from the clicked typeahead item
+              let iconHtml = '';
+              const iconSvg = el.querySelector('svg');
+              if (iconSvg) {
+                iconHtml = iconSvg.outerHTML;
+              }
+              stagedMacro = { name: cmdName, iconHtml };
+              renderMacroChip();
+            }
+          }
+        }
       }
 
       // All sidebar open/close is handled by snapshot mirroring.

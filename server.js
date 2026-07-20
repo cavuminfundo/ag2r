@@ -1444,10 +1444,25 @@ app.post('/submit-dialog', async (req, res) => {
   }
 });
 
-// --- Temp eval for debugging ---
-app.post('/eval', async (req, res) => {
+// --- Navigate Back ---
+app.post('/navigate-back', async (req, res) => {
   try {
-    const result = await evaluateInBrowser(`${req.body.script}`);
+    const script = `(() => {
+      // Strategy 1: Click breadcrumb back link above conversation-view
+      const cv = document.querySelector('[data-testid="conversation-view"]') ||
+                 document.querySelector('.scrollbar-hide[class*="overflow-y-auto"]');
+      if (cv && cv.parentElement) {
+        for (const child of cv.parentElement.children) {
+          if (child === cv) break;
+          const link = child.querySelector('a, button, [role="link"], [class*="cursor-pointer"]');
+          if (link) { link.click(); return { ok: true, strategy: 'breadcrumb' }; }
+        }
+      }
+      // Strategy 2: Click browser back button equivalent
+      window.history.back();
+      return { ok: true, strategy: 'history_back' };
+    })()`;
+    const result = await evaluateInBrowser(script);
     res.json({ result });
   } catch (e) { res.json({ error: e.message }); }
 });

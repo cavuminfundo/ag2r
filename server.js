@@ -114,11 +114,11 @@ function initVapid() {
     // Migrate from legacy repo-local path if it exists
     try {
       keys = JSON.parse(fs.readFileSync(LEGACY_VAPID_KEYS_PATH, 'utf-8'));
-      fs.writeFileSync(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2));
+      fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
       log('Push', 'Migrated VAPID keys to ~/.config/ag2r/');
     } catch {
       keys = webpush.generateVAPIDKeys();
-      fs.writeFileSync(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2));
+      fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
       log('Push', 'Generated new VAPID keys');
     }
   }
@@ -128,9 +128,9 @@ function initVapid() {
 }
 
 // Load push subscriptions from disk
-function loadSubscriptions() {
+async function loadSubscriptions() {
   try {
-    const raw = JSON.parse(fs.readFileSync(PUSH_SUBS_PATH, 'utf-8'));
+    const raw = JSON.parse(await fs.promises.readFile(PUSH_SUBS_PATH, 'utf-8'));
     for (const [endpoint, sub] of raw) {
       pushSubscriptions.set(endpoint, sub);
     }
@@ -141,26 +141,26 @@ function loadSubscriptions() {
 }
 
 // Persist push subscriptions to disk
-function saveSubscriptions() {
+async function saveSubscriptions() {
   try {
     ensureConfigDir();
     const data = JSON.stringify([...pushSubscriptions], null, 2);
-    fs.writeFileSync(PUSH_SUBS_PATH, data);
+    await fs.promises.writeFile(PUSH_SUBS_PATH, data);
   } catch (e) {
     console.debug('[Push] Failed to save subscriptions:', e.message);
   }
 }
 
 const vapidKeys = initVapid();
-loadSubscriptions();
+await loadSubscriptions();
 
 // === Push Pause State ===
 const PUSH_PAUSED_PATH = getConfigPath('push-paused.json');
 let pushPaused = false;
 
-function loadPauseState() {
+async function loadPauseState() {
   try {
-    const raw = JSON.parse(fs.readFileSync(PUSH_PAUSED_PATH, 'utf-8'));
+    const raw = JSON.parse(await fs.promises.readFile(PUSH_PAUSED_PATH, 'utf-8'));
     pushPaused = !!raw.paused;
     if (pushPaused) log('Push', 'Notifications are paused');
   } catch {
@@ -168,16 +168,16 @@ function loadPauseState() {
   }
 }
 
-function savePauseState() {
+async function savePauseState() {
   try {
     ensureConfigDir();
-    fs.writeFileSync(PUSH_PAUSED_PATH, JSON.stringify({ paused: pushPaused }));
+    await fs.promises.writeFile(PUSH_PAUSED_PATH, JSON.stringify({ paused: pushPaused }));
   } catch (e) {
     console.debug('[Push] Failed to save pause state:', e.message);
   }
 }
 
-loadPauseState();
+await loadPauseState();
 
 // Send push notification to all subscribers
 async function sendPushToAll(payload) {
@@ -347,13 +347,13 @@ function ensureCerts() {
 // ─────────────────────────────────────────────
 
 // Read CDP port from AG's DevToolsActivePort file (written when --remote-debugging-port=0)
-function readDevToolsPort() {
+async function readDevToolsPort() {
   const dtpPath = path.join(
     os.homedir(), 'Library', 'Application Support', 'Antigravity', 'DevToolsActivePort'
   );
   try {
-    const content = fs.readFileSync(dtpPath, 'utf-8').trim();
-    const port = parseInt(content.split('\n')[0], 10);
+    const content = await fs.promises.readFile(dtpPath, 'utf-8');
+    const port = parseInt(content.trim().split('\n')[0], 10);
     if (port > 0 && port < 65536) return port;
   } catch {
     // File doesn't exist or unreadable — AG may not be running
@@ -390,7 +390,7 @@ async function tryPortForTarget(port) {
 async function discoverTarget() {
   // Build candidate port list: DevToolsActivePort first (most likely after AG update),
   // then configured CDP_PORT range as fallback for older AG versions
-  const dtpPort = readDevToolsPort();
+  const dtpPort = await readDevToolsPort();
   const ports = new Set();
   if (dtpPort) ports.add(dtpPort);
   ports.add(CDP_PORT);

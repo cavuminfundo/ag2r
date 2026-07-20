@@ -9,6 +9,7 @@ import { createServer as createHttpServer } from 'http';
 import { WebSocketServer } from 'ws';
 import CDP from 'chrome-remote-interface';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import { execSync, exec } from 'child_process';
 import os from 'os';
 import path from 'path';
@@ -128,9 +129,9 @@ function initVapid() {
 }
 
 // Load push subscriptions from disk
-function loadSubscriptions() {
+async function loadSubscriptions() {
   try {
-    const raw = JSON.parse(fs.readFileSync(PUSH_SUBS_PATH, 'utf-8'));
+    const raw = JSON.parse(await fsPromises.readFile(PUSH_SUBS_PATH, 'utf-8'));
     for (const [endpoint, sub] of raw) {
       pushSubscriptions.set(endpoint, sub);
     }
@@ -152,7 +153,7 @@ function saveSubscriptions() {
 }
 
 const vapidKeys = initVapid();
-loadSubscriptions();
+await loadSubscriptions();
 
 // === Push Pause State ===
 const PUSH_PAUSED_PATH = getConfigPath('push-paused.json');

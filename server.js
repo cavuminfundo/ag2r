@@ -1774,11 +1774,15 @@ app.get('/icon-workshop/browse', (req, res) => {
   const IMG_EXT = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
   try {
     const resolved = path.resolve(dir);
+    const safeBase = path.join(__dirname, 'public');
+    if (resolved !== safeBase && !resolved.startsWith(safeBase + path.sep)) {
+      return res.status(403).json({ ok: false, error: 'Access denied: Path is outside the designated safe directory' });
+    }
     const entries = fs.readdirSync(resolved, { withFileTypes: true });
     const items = [];
     // Parent directory
     const parent = path.dirname(resolved);
-    if (parent !== resolved) {
+    if (parent !== resolved && (parent === safeBase || parent.startsWith(safeBase + path.sep))) {
       items.push({ name: '..', path: parent, type: 'dir' });
     }
     for (const e of entries) {
@@ -1805,9 +1809,9 @@ app.get('/icon-workshop/file', (req, res) => {
   if (!filePath) return res.status(400).send('No path');
   try {
     const resolved = path.resolve(filePath);
-    const publicDir = path.resolve(__dirname, 'public');
-    if (!resolved.startsWith(publicDir + path.sep) && resolved !== publicDir) {
-      return res.status(403).send('Forbidden');
+    const safeBase = path.join(__dirname, 'public');
+    if (resolved !== safeBase && !resolved.startsWith(safeBase + path.sep)) {
+      return res.status(403).send('Access denied: Path is outside the designated safe directory');
     }
     if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
     res.sendFile(resolved);

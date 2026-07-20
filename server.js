@@ -158,9 +158,9 @@ loadSubscriptions();
 const PUSH_PAUSED_PATH = getConfigPath('push-paused.json');
 let pushPaused = false;
 
-function loadPauseState() {
+async function loadPauseState() {
   try {
-    const raw = JSON.parse(fs.readFileSync(PUSH_PAUSED_PATH, 'utf-8'));
+    const raw = JSON.parse(await fs.promises.readFile(PUSH_PAUSED_PATH, 'utf-8'));
     pushPaused = !!raw.paused;
     if (pushPaused) log('Push', 'Notifications are paused');
   } catch {

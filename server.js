@@ -114,11 +114,11 @@ function initVapid() {
     // Migrate from legacy repo-local path if it exists
     try {
       keys = JSON.parse(fs.readFileSync(LEGACY_VAPID_KEYS_PATH, 'utf-8'));
-      fs.writeFileSync(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2));
+      fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
       log('Push', 'Migrated VAPID keys to ~/.config/ag2r/');
     } catch {
       keys = webpush.generateVAPIDKeys();
-      fs.writeFileSync(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2));
+      fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
       log('Push', 'Generated new VAPID keys');
     }
   }

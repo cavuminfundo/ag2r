@@ -141,11 +141,11 @@ function loadSubscriptions() {
 }
 
 // Persist push subscriptions to disk
-function saveSubscriptions() {
+async function saveSubscriptions() {
   try {
     ensureConfigDir();
     const data = JSON.stringify([...pushSubscriptions], null, 2);
-    fs.writeFileSync(PUSH_SUBS_PATH, data);
+    await fs.promises.writeFile(PUSH_SUBS_PATH, data);
   } catch (e) {
     console.debug('[Push] Failed to save subscriptions:', e.message);
   }

@@ -347,13 +347,13 @@ function ensureCerts() {
 // ─────────────────────────────────────────────
 
 // Read CDP port from AG's DevToolsActivePort file (written when --remote-debugging-port=0)
-function readDevToolsPort() {
+async function readDevToolsPort() {
   const dtpPath = path.join(
     os.homedir(), 'Library', 'Application Support', 'Antigravity', 'DevToolsActivePort'
   );
   try {
-    const content = fs.readFileSync(dtpPath, 'utf-8').trim();
-    const port = parseInt(content.split('\n')[0], 10);
+    const content = await fs.promises.readFile(dtpPath, 'utf-8');
+    const port = parseInt(content.trim().split('\n')[0], 10);
     if (port > 0 && port < 65536) return port;
   } catch {
     // File doesn't exist or unreadable — AG may not be running
@@ -390,7 +390,7 @@ async function tryPortForTarget(port) {
 async function discoverTarget() {
   // Build candidate port list: DevToolsActivePort first (most likely after AG update),
   // then configured CDP_PORT range as fallback for older AG versions
-  const dtpPort = readDevToolsPort();
+  const dtpPort = await readDevToolsPort();
   const ports = new Set();
   if (dtpPort) ports.add(dtpPort);
   ports.add(CDP_PORT);

@@ -1863,6 +1863,10 @@ app.get('/icon-workshop/file', (req, res) => {
   if (!filePath) return res.status(400).send('No path');
   try {
     const resolved = path.resolve(filePath);
+    const publicDir = path.resolve(__dirname, 'public');
+    if (!resolved.startsWith(publicDir + path.sep) && resolved !== publicDir) {
+      return res.status(403).send('Forbidden');
+    }
     if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
     res.sendFile(resolved);
   } catch (e) { res.status(500).send(e.message); }

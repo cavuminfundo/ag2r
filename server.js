@@ -168,10 +168,13 @@ function loadPauseState() {
   }
 }
 
-function savePauseState() {
+async function savePauseState() {
   try {
     ensureConfigDir();
-    fs.writeFileSync(PUSH_PAUSED_PATH, JSON.stringify({ paused: pushPaused }));
+    await fs.promises.writeFile(
+      PUSH_PAUSED_PATH,
+      JSON.stringify({ paused: pushPaused })
+    );
   } catch (e) {
     console.debug('[Push] Failed to save pause state:', e.message);
   }

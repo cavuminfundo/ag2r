@@ -1823,7 +1823,7 @@ app.get('/icon-workshop', (req, res) => {
 app.post('/icon-workshop/save', (req, res) => {
   const chunks = [];
   req.on('data', c => chunks.push(c));
-  req.on('end', () => {
+  req.on('end', async () => {
     try {
       const buf = Buffer.concat(chunks);
       // Parse multipart to extract the PNG blob
@@ -1835,7 +1835,7 @@ app.post('/icon-workshop/save', (req, res) => {
           const headerEnd = part.indexOf('\r\n\r\n');
           if (headerEnd < 0) continue;
           const body = Buffer.from(part.substring(headerEnd + 4).replace(/\r\n$/, ''), 'binary');
-          fs.writeFileSync(path.join(__dirname, 'public', 'ag2r-icon.png'), body);
+          await fs.promises.writeFile(path.join(__dirname, 'public', 'ag2r-icon.png'), body);
           return res.json({ ok: true });
         }
       }

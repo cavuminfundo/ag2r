@@ -36,9 +36,14 @@ export function getConfigPath(filename) {
   return path.join(CONFIG_DIR, filename);
 }
 
+let configDirEnsured = false;
+
 /**
  * Ensures the config directory exists. Call before first write.
  */
 export function ensureConfigDir() {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  if (!configDirEnsured) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    configDirEnsured = true;
+  }
 }

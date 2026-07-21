@@ -106,20 +106,20 @@ const PUSH_SUBS_PATH = getConfigPath('push-subscriptions.json');
 const pushSubscriptions = new Map(); // endpoint → { ...PushSubscription, origin }
 
 // Load or generate VAPID keys on startup
-function initVapid() {
+async function initVapid() {
   ensureConfigDir();
   let keys;
   try {
-    keys = JSON.parse(fs.readFileSync(VAPID_KEYS_PATH, 'utf-8'));
+    keys = JSON.parse(await fs.promises.readFile(VAPID_KEYS_PATH, 'utf-8'));
   } catch {
     // Migrate from legacy repo-local path if it exists
     try {
-      keys = JSON.parse(fs.readFileSync(LEGACY_VAPID_KEYS_PATH, 'utf-8'));
-      fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
+      keys = JSON.parse(await fs.promises.readFile(LEGACY_VAPID_KEYS_PATH, 'utf-8'));
+      await fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
       log('Push', 'Migrated VAPID keys to ~/.config/ag2r/');
     } catch {
       keys = webpush.generateVAPIDKeys();
-      fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
+      await fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
       log('Push', 'Generated new VAPID keys');
     }
   }
@@ -152,7 +152,7 @@ async function saveSubscriptions() {
   }
 }
 
-const vapidKeys = initVapid();
+const vapidKeys = await initVapid();
 await loadSubscriptions();
 
 // === Push Pause State ===

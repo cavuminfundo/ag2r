@@ -182,8 +182,25 @@ subagentBackBtn.addEventListener('click', async () => {
 
   try {
     // Click AG's breadcrumb/back link to navigate back to parent
-    await fetchAPI('/navigate-back', {
-      method: 'POST'
+    await fetchAPI('/eval', {
+      method: 'POST',
+      body: JSON.stringify({
+        script: `(() => {
+          // Strategy 1: Click breadcrumb back link above conversation-view
+          const cv = document.querySelector('[data-testid="conversation-view"]') ||
+                     document.querySelector('.scrollbar-hide[class*="overflow-y-auto"]');
+          if (cv && cv.parentElement) {
+            for (const child of cv.parentElement.children) {
+              if (child === cv) break;
+              const link = child.querySelector('a, button, [role="link"], [class*="cursor-pointer"]');
+              if (link) { link.click(); return { ok: true, strategy: 'breadcrumb' }; }
+            }
+          }
+          // Strategy 2: Click browser back button equivalent
+          window.history.back();
+          return { ok: true, strategy: 'history_back' };
+        })()`
+      }),
     });
   } catch {}
   setTimeout(() => {

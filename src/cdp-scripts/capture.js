@@ -167,15 +167,7 @@ export const CAPTURE_SCRIPT = `
   let leftSidebarHtml = null;
   let sidebarAttentionItems = [];
   try {
-    let leftRoot = null;
-    const sidebars = document.querySelectorAll('.bg-sidebar');
-    for (const el of sidebars) {
-      const r = el.getBoundingClientRect();
-      if (r.height > 200) {
-        leftRoot = el;
-        break;
-      }
-    }
+    const leftRoot = document.querySelector('.bg-sidebar');
     if (leftRoot && leftRoot.offsetParent !== null) {
       const leftTagged = tagInteractives(leftRoot, 'left', true, true);
       const leftClone = leftRoot.cloneNode(true);

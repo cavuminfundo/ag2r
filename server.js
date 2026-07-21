@@ -115,11 +115,11 @@ function initVapid() {
     // Migrate from legacy repo-local path if it exists
     try {
       keys = JSON.parse(fs.readFileSync(LEGACY_VAPID_KEYS_PATH, 'utf-8'));
-      fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
+      fs.writeFileSync(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2));
       log('Push', 'Migrated VAPID keys to ~/.config/ag2r/');
     } catch {
       keys = webpush.generateVAPIDKeys();
-      fs.promises.writeFile(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2)).catch(e => console.error('[Push] Failed to save VAPID keys:', e.message));
+      fs.writeFileSync(VAPID_KEYS_PATH, JSON.stringify(keys, null, 2));
       log('Push', 'Generated new VAPID keys');
     }
   }
@@ -129,9 +129,9 @@ function initVapid() {
 }
 
 // Load push subscriptions from disk
-async function loadSubscriptions() {
+function loadSubscriptions() {
   try {
-    const raw = JSON.parse(await fs.promises.readFile(PUSH_SUBS_PATH, 'utf-8'));
+    const raw = JSON.parse(fs.readFileSync(PUSH_SUBS_PATH, 'utf-8'));
     for (const [endpoint, sub] of raw) {
       pushSubscriptions.set(endpoint, sub);
     }
@@ -142,26 +142,26 @@ async function loadSubscriptions() {
 }
 
 // Persist push subscriptions to disk
-async function saveSubscriptions() {
+function saveSubscriptions() {
   try {
     ensureConfigDir();
     const data = JSON.stringify([...pushSubscriptions], null, 2);
-    await fs.promises.writeFile(PUSH_SUBS_PATH, data);
+    fs.writeFileSync(PUSH_SUBS_PATH, data);
   } catch (e) {
     console.debug('[Push] Failed to save subscriptions:', e.message);
   }
 }
 
 const vapidKeys = initVapid();
-await loadSubscriptions();
+loadSubscriptions();
 
 // === Push Pause State ===
 const PUSH_PAUSED_PATH = getConfigPath('push-paused.json');
 let pushPaused = false;
 
-async function loadPauseState() {
+function loadPauseState() {
   try {
-    const raw = JSON.parse(await fs.promises.readFile(PUSH_PAUSED_PATH, 'utf-8'));
+    const raw = JSON.parse(fs.readFileSync(PUSH_PAUSED_PATH, 'utf-8'));
     pushPaused = !!raw.paused;
     if (pushPaused) log('Push', 'Notifications are paused');
   } catch {
@@ -169,16 +169,16 @@ async function loadPauseState() {
   }
 }
 
-async function savePauseState() {
+function savePauseState() {
   try {
     ensureConfigDir();
-    await fs.promises.writeFile(PUSH_PAUSED_PATH, JSON.stringify({ paused: pushPaused }));
+    fs.writeFileSync(PUSH_PAUSED_PATH, JSON.stringify({ paused: pushPaused }));
   } catch (e) {
     console.debug('[Push] Failed to save pause state:', e.message);
   }
 }
 
-await loadPauseState();
+loadPauseState();
 
 // Send push notification to all subscribers
 async function sendPushToAll(payload) {
@@ -348,13 +348,13 @@ function ensureCerts() {
 // ─────────────────────────────────────────────
 
 // Read CDP port from AG's DevToolsActivePort file (written when --remote-debugging-port=0)
-async function readDevToolsPort() {
+function readDevToolsPort() {
   const dtpPath = path.join(
     os.homedir(), 'Library', 'Application Support', 'Antigravity', 'DevToolsActivePort'
   );
   try {
-    const content = await fs.promises.readFile(dtpPath, 'utf-8');
-    const port = parseInt(content.trim().split('\n')[0], 10);
+    const content = fs.readFileSync(dtpPath, 'utf-8').trim();
+    const port = parseInt(content.split('\n')[0], 10);
     if (port > 0 && port < 65536) return port;
   } catch {
     // File doesn't exist or unreadable — AG may not be running
@@ -391,7 +391,7 @@ async function tryPortForTarget(port) {
 async function discoverTarget() {
   // Build candidate port list: DevToolsActivePort first (most likely after AG update),
   // then configured CDP_PORT range as fallback for older AG versions
-  const dtpPort = await readDevToolsPort();
+  const dtpPort = readDevToolsPort();
   const ports = new Set();
   if (dtpPort) ports.add(dtpPort);
   ports.add(CDP_PORT);
@@ -1447,25 +1447,12 @@ app.post('/submit-dialog', async (req, res) => {
   }
 });
 
-// --- Navigate Back ---
-app.post('/navigate-back', async (req, res) => {
+// --- Temp eval for debugging ---
+app.post('/eval', async (req, res) => {
   try {
-    const script = `(() => {
-      // Strategy 1: Click breadcrumb back link above conversation-view
-      const cv = document.querySelector('[data-testid="conversation-view"]') ||
-                 document.querySelector('.scrollbar-hide[class*="overflow-y-auto"]');
-      if (cv && cv.parentElement) {
-        for (const child of cv.parentElement.children) {
-          if (child === cv) break;
-          const link = child.querySelector('a, button, [role="link"], [class*="cursor-pointer"]');
-          if (link) { link.click(); return { ok: true, strategy: 'breadcrumb' }; }
-        }
-      }
-      // Strategy 2: Click browser back button equivalent
-      window.history.back();
-      return { ok: true, strategy: 'history_back' };
-    })()`;
-    const result = await evaluateInBrowser(script);
+    log('Eval', `Executing script: ${String(req.body.script).substring(0, 150)}...`);
+    const result = await evaluateInBrowser(`${req.body.script}`);
+    log('Eval', `Result: ${JSON.stringify(result)}`);
     res.json({ result });
   } catch (e) {
     log('Eval', `Error: ${e.message}`);
@@ -1841,6 +1828,7 @@ app.post('/icon-workshop/save', (req, res) => {
 // Browse files on the laptop
 app.get('/icon-workshop/browse', (req, res) => {
   let dir = req.query.dir || path.join(__dirname, 'public');
+  if (typeof dir !== 'string') dir = String(dir);
   if (dir.startsWith('~')) dir = dir.replace('~', os.homedir());
   const IMG_EXT = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
   try {
@@ -1876,8 +1864,9 @@ app.get('/icon-workshop/browse', (req, res) => {
 });
 
 app.get('/icon-workshop/file', (req, res) => {
-  const filePath = req.query.path;
+  let filePath = req.query.path;
   if (!filePath) return res.status(400).send('No path');
+  if (typeof filePath !== 'string') filePath = String(filePath);
   try {
     const resolved = path.resolve(filePath);
     const safeBase = path.join(__dirname, 'public');

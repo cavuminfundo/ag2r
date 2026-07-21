@@ -41,14 +41,7 @@ export function buildMainClickScript(safeClickId, safeLabel) {
           }
         }
       } else if (source === 'left') {
-        const sidebars = document.querySelectorAll('.bg-sidebar');
-        for (const el of sidebars) {
-          const r = el.getBoundingClientRect();
-          if (r.height > 200) {
-            root = el;
-            break;
-          }
-        }
+        root = document.querySelector('.bg-sidebar');
       } else if (source === 'right') {
         // Anchor-based: find via tab-id buttons or toggle-aux-sidebar
         const tabBtn = document.querySelector('[data-tab-id="overview"], [data-tab-id="review"]');

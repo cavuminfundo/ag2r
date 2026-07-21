@@ -399,11 +399,17 @@ async function discoverTarget() {
   ports.add(CDP_PORT + 2);
   ports.add(CDP_PORT + 3);
 
-  for (const port of ports) {
+  const promises = Array.from(ports).map(async (port) => {
     const result = await tryPortForTarget(port);
     if (result) return result;
+    throw new Error('Not found on port ' + port);
+  });
+
+  try {
+    return await Promise.any(promises);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 async function connectCDP() {

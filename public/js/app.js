@@ -182,9 +182,7 @@ subagentBackBtn.addEventListener('click', async () => {
 
   try {
     // Click AG's breadcrumb/back link to navigate back to parent
-    await fetchAPI('/navigate-back', {
-      method: 'POST'
-    });
+    await fetchAPI('/navigate-back', { method: 'POST' });
   } catch {}
   setTimeout(() => {
     subagentBackBtn.style.opacity = '';

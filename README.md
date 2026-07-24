@@ -322,11 +322,11 @@ The `tunnel-watchdog.sh` script can similarly keep a Cloudflare tunnel alive, an
 
 ## 🌿 Branching Strategy
 
-| Branch | Purpose | Stability |
-|--------|---------|----------|
-| `main` | Current stable version — works with the AG version shown in the badge above | ✅ Stable |
-| `prev-stable` | Previous stable version — frozen snapshot of `main` before the latest merge | ✅ Stable |
-| `next` | Bleeding edge — being tested against an upcoming AG version | ⚠️ May break |
+| Branch | Purpose | AG Version | Stability |
+|--------|---------|------------|-----------|
+| `main` | Current stable version | See badge above | ✅ Stable |
+| `prev-stable` | Previous stable — frozen snapshot of `main` before the latest merge | v2.2.1 | ✅ Stable |
+| `next` | Bleeding edge — being tested against an upcoming AG version | TBD | ⚠️ May break |
 
 ### How it works
 
@@ -341,7 +341,7 @@ When a new Antigravity version ships, the developer's workflow is:
 
 **Start with `main`.** It works with the AG version shown in the badge at the top.
 
-If `main` is broken (typically right after a new AG release), use `prev-stable` — it's a frozen snapshot that works with the previous AG version. Install that AG version and use `prev-stable` until `main` is updated.
+If `main` is broken (typically right after a new AG release), use `prev-stable` — it's a frozen snapshot that works with **Antigravity v2.2.1**. Install that AG version from the [releases page](https://antigravity.google/releases) and use `prev-stable` until `main` is updated.
 
 ```bash
 # Fall back to the previous stable version

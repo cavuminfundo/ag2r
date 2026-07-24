@@ -84,6 +84,10 @@ const scheduledTasksOverlay = document.getElementById('scheduled-tasks-overlay')
 const scheduledTasksContent = document.getElementById('scheduled-tasks-content');
 const scheduledTasksDialog = document.getElementById('scheduled-tasks-dialog');
 const scheduledTasksBack = document.getElementById('scheduled-tasks-back');
+// Conversation History overlay
+const conversationHistoryOverlay = document.getElementById('conversation-history-overlay');
+const conversationHistoryContent = document.getElementById('conversation-history-content');
+const conversationHistoryBack = document.getElementById('conversation-history-back');
 // Text input modal (for scheduled tasks form fields)
 const textInputModal = document.getElementById('text-input-modal');
 const textInputBackdrop = document.getElementById('text-input-backdrop');
@@ -574,8 +578,10 @@ async function loadSnapshot() {
     }
 
     // Render dropdown overlay if AG has a portal menu open (e.g., three-dots conversation menu)
-    // Skip if user just dismissed (prevents stale snapshots from re-opening)
-    const suppressOverlay = Date.now() - overlayDismissedAt < 2000;
+    // Skip if user just dismissed (prevents stale snapshots from re-opening within the
+    // /dismiss-portal round-trip window). 300ms covers the CDP round-trip (~100ms) safely;
+    // 2000ms was too long and caused every-other-open to be suppressed.
+    const suppressOverlay = Date.now() - overlayDismissedAt < 300;
     if (data.dropdownHtml && !suppressOverlay) {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = data.dropdownHtml;
@@ -800,47 +806,66 @@ async function loadSnapshot() {
         const allButtons = tempDiv.querySelectorAll('[data-ag-click-id]');
         const buttonArray = Array.from(allButtons);
 
-        // Defense-in-depth: real task sections have >= 3 tagged buttons
-        // (1 header toggle + N name/stop pairs). If AG sends a structural
-        // wrapper with no real tasks, treat as "no tasks".
-        if (buttonArray.length < 3) {
+        // Defense-in-depth: real task/goal sections have >= 2 tagged buttons
+        // (1 header toggle + at least 1 name button). If AG sends a structural
+        // wrapper with no real items, treat as empty.
+        if (buttonArray.length < 2) {
           runningTasks.classList.add('hidden');
           runningTasks.dataset.lastHtml = '';
         } else {
-          // Extract header text (e.g., "1 task running")
+          // Extract header text (e.g., "1 task running", "1 active goal")
           const headerBtn = tempDiv.querySelector('button');
           const headerSpan = headerBtn?.querySelector('span');
           runningTasksCount.textContent = headerSpan ? headerSpan.textContent.trim() : 'Tasks running';
 
-          // Build a map: for each task row, find its name button click ID and stop button click ID
-          // Button order in capture: header toggle (task:0), then for each task row:
-          //   task name button (task:1, task:3, ...), stop button (task:2, task:4, ...)
+          // Build rows from tagged buttons after the header (task:0).
+          // Tasks have: name button + stop button (empty label = icon-only).
+          // Goals have: name button only (no stop button).
+          // Detect by checking if the next button has an empty label (stop icon).
           let rowsHtml = '';
 
-          // Skip the first button (header toggle, task:0), then pair remaining buttons
-          for (let i = 1; i < buttonArray.length; i += 2) {
+          let i = 1; // Skip header toggle (task:0)
+          while (i < buttonArray.length) {
             const nameBtn = buttonArray[i];
-            const stopBtn = buttonArray[i + 1];
             const nameClickId = nameBtn?.dataset?.agClickId || '';
             const nameLabel = nameBtn?.dataset?.agClickLabel || '';
-            const stopClickId = stopBtn?.dataset?.agClickId || '';
-            const stopLabel = stopBtn?.dataset?.agClickLabel || '';
+
+            // Check if the next button is a stop button (empty text = icon-only)
+            const nextBtn = buttonArray[i + 1];
+            const nextIsStop = nextBtn && (nextBtn.dataset?.agClickLabel || '').trim() === '';
 
             // Extract task name from the font-mono span inside the name button
             const monoSpan = nameBtn?.querySelector('.font-mono');
             const taskName = monoSpan ? monoSpan.textContent.trim() : (nameLabel || 'Task');
 
-            rowsHtml += `
-              <div class="running-task-row">
-                <button class="running-task-name" data-ag-click-id="${nameClickId}" data-ag-click-label="${nameLabel}">
-                  <div class="running-task-spinner"></div>
-                  <span>${taskName}</span>
-                </button>
-                <button class="running-task-stop" data-ag-click-id="${stopClickId}" data-ag-click-label="${stopLabel}" aria-label="Stop task">
-                  <span class="material-symbols-rounded" style="font-size:18px">stop_circle</span>
-                </button>
-              </div>
-            `;
+            if (nextIsStop) {
+              // Task row: name + stop button pair
+              const stopClickId = nextBtn.dataset?.agClickId || '';
+              const stopLabel = nextBtn.dataset?.agClickLabel || '';
+              rowsHtml += `
+                <div class="running-task-row">
+                  <button class="running-task-name" data-ag-click-id="${nameClickId}" data-ag-click-label="${nameLabel}">
+                    <div class="running-task-spinner"></div>
+                    <span>${taskName}</span>
+                  </button>
+                  <button class="running-task-stop" data-ag-click-id="${stopClickId}" data-ag-click-label="${stopLabel}" aria-label="Stop task">
+                    <span class="material-symbols-rounded" style="font-size:18px">stop_circle</span>
+                  </button>
+                </div>
+              `;
+              i += 2;
+            } else {
+              // Goal row: name button only (no stop)
+              rowsHtml += `
+                <div class="running-task-row">
+                  <button class="running-task-name running-task-goal" data-ag-click-id="${nameClickId}" data-ag-click-label="${nameLabel}">
+                    <div class="running-task-spinner"></div>
+                    <span>${taskName}</span>
+                  </button>
+                </div>
+              `;
+              i += 1;
+            }
           }
 
           runningTasksList.innerHTML = rowsHtml;
@@ -922,6 +947,19 @@ async function loadSnapshot() {
     } else {
       scheduledTasksDialog.classList.add('hidden');
       scheduledTasksDialog._lastHtml = '';
+    }
+
+    // Render Conversation History overlay if AG's history page is open
+    if (data.conversationHistoryHtml) {
+      if (conversationHistoryContent._lastHtml !== data.conversationHistoryHtml) {
+        conversationHistoryContent._lastHtml = data.conversationHistoryHtml;
+        conversationHistoryContent.innerHTML = data.conversationHistoryHtml;
+        addClickProxyHandlers(conversationHistoryContent);
+      }
+      conversationHistoryOverlay.classList.remove('hidden');
+    } else {
+      conversationHistoryOverlay.classList.add('hidden');
+      conversationHistoryContent._lastHtml = '';
     }
 
     // Track active artifact URI for commenting
@@ -1850,6 +1888,19 @@ scheduledTasksBack.addEventListener('click', async () => {
   scheduledTasksContent._lastHtml = '';
 });
 
+// Conversation History back button — navigate AG back (browser history back)
+conversationHistoryBack.addEventListener('click', async () => {
+  try {
+    // Send AG a history-back navigation via CDP
+    await fetchAPI('/history-back', { method: 'POST' });
+  } catch (e) {
+    // ignore
+  }
+  // Optimistically hide overlay; the next snapshot cycle will confirm
+  conversationHistoryOverlay.classList.add('hidden');
+  conversationHistoryContent._lastHtml = '';
+});
+
 // ─────────────────────────────────────────────
 // Right Sidebar (on-demand fetch from AG)
 // ─────────────────────────────────────────────
@@ -2060,9 +2111,7 @@ function renderSidebar(container, html) {
     const topBar = container.querySelector('[style*="app-region: drag"]');
     if (topBar) topBar.remove();
 
-    // Remove Conversation History button (redundant — sidebar already shows conversations).
-    // New Conversation and Scheduled Tasks stay visible.
-    container.querySelectorAll('[data-ag-click-label="Conversation History"]').forEach(el => el.remove());
+    // All three base menu items stay visible: New Conversation, Conversation History, Scheduled Tasks.
 
     // The separator line between actions and project list
     // It's a div with mt-3 mx-2 h-px (transparent background divider)
@@ -2265,12 +2314,13 @@ function addClickProxyHandlers(container) {
       // Close sidebar only for conversation row clicks (navigates away).
       // Conversation rows have min-h-[32px] in their class; project headers,
       // "See all/less", and "Settings" do not.
-      // Also close for "Scheduled Tasks" since it opens a full-screen overlay.
+      // Also close for "Scheduled Tasks" and "Conversation History" since they navigate away.
       if (clickId.startsWith('left:')) {
         const elClass = (el.className || '').toString();
         const isConversationRow = elClass.includes('min-h-[32px]');
         const isScheduledTasks = label === 'Scheduled Tasks';
-        if (isConversationRow || isScheduledTasks) {
+        const isConversationHistory = label === 'Conversation History';
+        if (isConversationRow || isScheduledTasks || isConversationHistory) {
           closeLeftSidebar();
           // Reset subagent view when navigating to a different conversation
           if (isConversationRow) {
@@ -2282,7 +2332,12 @@ function addClickProxyHandlers(container) {
 
       // Close dropdown overlay after any dropdown/dialog/scheduled-tasks-portal action
       if (clickId.startsWith('dropdown:') || clickId.startsWith('dialog:') || (clickId.startsWith('scheddlg:') && parseInt(clickId.split(':')[1], 10) >= 100)) {
-        overlayDismissedAt = Date.now();
+        // Only suppress future overlay renders if the click actually succeeded.
+        // If the click failed (e.g. no_root_for_dialog), don't start the 2s suppression
+        // window — the user needs to retry immediately without waiting 2 seconds.
+        if (result?.ok) {
+          overlayDismissedAt = Date.now();
+        }
         dropdownOverlay.classList.add('hidden');
 
         // Detect slash command selection from the overlay

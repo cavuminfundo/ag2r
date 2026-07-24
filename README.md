@@ -326,7 +326,7 @@ The `tunnel-watchdog.sh` script can similarly keep a Cloudflare tunnel alive, an
 |--------|---------|------------|-----------|
 | `main` | Current stable version | See badge above | ✅ Stable |
 | `prev-stable` | Previous stable — frozen snapshot of `main` before the latest merge | v2.2.1 | ✅ Stable |
-| `next` | Bleeding edge — being tested against an upcoming AG version | TBD | ⚠️ May break |
+| `next` | Bleeding edge — being tested against an upcoming AG version | Latest | ⚠️ May break |
 
 ### How it works
 

@@ -1845,7 +1845,7 @@ app.post('/icon-workshop/save', (req, res) => {
 });
 
 // Browse files on the laptop
-app.get('/icon-workshop/browse', (req, res) => {
+app.get('/icon-workshop/browse', async (req, res) => {
   let dir = req.query.dir;
   if (Array.isArray(dir)) dir = dir[0];
   if (typeof dir !== 'string') dir = '';
@@ -1853,18 +1853,21 @@ app.get('/icon-workshop/browse', (req, res) => {
   if (dir.startsWith('~')) dir = dir.replace('~', os.homedir());
   const IMG_EXT = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico'];
   try {
-    const resolved = fs.realpathSync(path.resolve(dir));
-    const safeBase = fs.realpathSync(path.join(__dirname, 'public'));
+    const resolved = await fs.promises.realpath(path.resolve(dir));
+    const safeBase = await fs.promises.realpath(path.join(__dirname, 'public'));
     if (resolved !== safeBase && !resolved.startsWith(safeBase + path.sep)) {
       return res.status(403).json({ ok: false, error: 'Access denied: Path is outside the designated safe directory' });
     }
-    const entries = fs.readdirSync(resolved, { withFileTypes: true });
+    const entries = await fs.promises.readdir(resolved, { withFileTypes: true });
     const items = [];
     // Parent directory
     const parent = path.dirname(resolved);
     if (parent !== resolved && (parent === safeBase || parent.startsWith(safeBase + path.sep))) {
       items.push({ name: '..', path: parent, type: 'dir' });
     }
+
+    const statPromises = [];
+
     for (const e of entries) {
       if (e.name.startsWith('.')) continue;
       const full = path.join(resolved, e.name);
@@ -1872,10 +1875,16 @@ app.get('/icon-workshop/browse', (req, res) => {
         if (e.name === 'node_modules' || e.name === '.git') continue;
         items.push({ name: e.name + '/', path: full, type: 'dir' });
       } else if (IMG_EXT.includes(path.extname(e.name).toLowerCase())) {
-        const stat = fs.statSync(full);
-        items.push({ name: e.name, path: full, type: 'file', size: stat.size });
+        statPromises.push(
+          fs.promises.stat(full).then(stat => {
+            items.push({ name: e.name, path: full, type: 'file', size: stat.size });
+          }).catch(() => { /* ignore errors */ })
+        );
       }
     }
+
+    await Promise.all(statPromises);
+
     items.sort((a, b) => {
       if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
       return a.name.localeCompare(b.name);

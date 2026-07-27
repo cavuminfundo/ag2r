@@ -1814,10 +1814,15 @@ app.get('/health', (req, res) => {
 // Icon Workshop (dev tool, untracked)
 // ─────────────────────────────────────────────
 
-app.get('/icon-workshop', (req, res) => {
+app.get('/icon-workshop', (req, res, next) => {
   const toolPath = path.join(__dirname, '_tools', 'icon-workshop.html');
-  if (!fs.existsSync(toolPath)) return res.status(404).send('Icon workshop not found');
-  res.sendFile(toolPath);
+  res.sendFile(toolPath, (err) => {
+    if (err && !res.headersSent) {
+      res.status(404).send('Icon workshop not found');
+    } else if (err) {
+      next(err);
+    }
+  });
 });
 
 app.post('/icon-workshop/save', (req, res) => {

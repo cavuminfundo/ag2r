@@ -10,6 +10,8 @@ import { WebSocketServer } from 'ws';
 import CDP from 'chrome-remote-interface';
 import fs from 'fs';
 import { execSync, exec } from 'child_process';
+import util from 'util';
+const execAsync = util.promisify(exec);
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -1198,7 +1200,7 @@ app.post('/restart-antigravity', async (req, res) => {
     // pgrep doesn't work on macOS Electron — must use ps aux (see GEMINI.md gotcha)
     let pid = null;
     try {
-      const psOutput = execSync('ps aux', { encoding: 'utf8' });
+      const { stdout: psOutput } = await execAsync('ps aux', { encoding: 'utf8' });
       for (const line of psOutput.split('\n')) {
         if (line.includes('Antigravity.app/Contents/MacOS/Antigravity') && !line.includes('grep')) {
           pid = parseInt(line.trim().split(/\s+/)[1], 10);

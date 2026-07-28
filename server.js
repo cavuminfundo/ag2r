@@ -1872,9 +1872,7 @@ app.get('/icon-workshop/browse', async (req, res) => {
     if (parent !== resolved && (parent === safeBase || parent.startsWith(safeBase + path.sep))) {
       items.push({ name: '..', path: parent, type: 'dir' });
     }
-
     const statPromises = [];
-
     for (const e of entries) {
       if (e.name.startsWith('.')) continue;
       const full = path.join(resolved, e.name);
@@ -1889,9 +1887,7 @@ app.get('/icon-workshop/browse', async (req, res) => {
         );
       }
     }
-
     await Promise.all(statPromises);
-
     items.sort((a, b) => {
       if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
       return a.name.localeCompare(b.name);

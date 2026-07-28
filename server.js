@@ -1900,19 +1900,25 @@ app.get('/icon-workshop/browse', async (req, res) => {
   } catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
-app.get('/icon-workshop/file', (req, res) => {
+app.get('/icon-workshop/file', async (req, res) => {
   let filePath = req.query.path;
   if (Array.isArray(filePath)) filePath = filePath[0];
   if (typeof filePath !== 'string' || !filePath) return res.status(400).send('No path');
   try {
-    const resolved = fs.realpathSync(path.resolve(filePath));
-    const safeBase = fs.realpathSync(path.join(__dirname, 'public'));
+    const resolved = await fs.promises.realpath(path.resolve(filePath));
+    const safeBase = await fs.promises.realpath(path.join(__dirname, 'public'));
     if (resolved !== safeBase && !resolved.startsWith(safeBase + path.sep)) {
       return res.status(403).send('Access denied: Path is outside the designated safe directory');
     }
-    if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
-    res.sendFile(resolved);
-  } catch (e) { res.status(500).send(e.message); }
+    res.sendFile(resolved, (err) => {
+      if (err && !res.headersSent) {
+        res.status(404).send('Not found');
+      }
+    });
+  } catch (e) {
+    if (e.code === 'ENOENT') return res.status(404).send('Not found');
+    res.status(500).send(e.message);
+  }
 });
 
 

@@ -55,14 +55,10 @@ export const CAPTURE_SCRIPT = `
     try {
       const cls = (el.className || '').toString();
       const role = el.getAttribute('role');
-      const text = (el.textContent || '').toLowerCase();
       const isToast = el.hasAttribute('data-radix-toast-list') || 
                       el.hasAttribute('data-sonner-toaster') ||
                       role === 'status' || role === 'alert' ||
-                      cls.includes('toast') || cls.includes('sonner') ||
-                      (text.length < 50 && (text.includes('queue') || text.includes('attesa') || text.includes('coda') ||
-                      text.includes('busy') || text.includes('progress') || text.includes('working') ||
-                      text.includes('elaborazione') || text.includes('message')));
+                      cls.includes('toast') || cls.includes('sonner');
       
       if (isToast) {
         el.setAttribute('data-ag-toast', '1');
@@ -70,7 +66,7 @@ export const CAPTURE_SCRIPT = `
       }
       
       const cs = getComputedStyle(el);
-      if (cs.position === 'fixed' || cs.position === 'absolute') {
+      if (cs.position === 'fixed') {
         if (!isToast) {
           el.setAttribute('data-ag-remove', '1');
           marked.push(el);
@@ -132,9 +128,10 @@ export const CAPTURE_SCRIPT = `
     el.classList.add('opacity-100', 'visible');
     el.style.opacity = '1';
     el.style.visibility = 'visible';
-    el.style.zIndex = '99999';
-    el.style.bottom = '120px'; // force above ag2r input bar
-    el.style.border = '4px solid red'; // DEBUG: highlight it so we know it's there
+    el.style.zIndex = '9999';
+    if (el.style.position === 'fixed') {
+      el.style.bottom = '120px'; // force above ag2r input bar
+    }
   });
 
   // -- 9. Force sticky backgrounds --
@@ -180,7 +177,6 @@ export const CAPTURE_SCRIPT = `
       toastClone.style.pointerEvents = 'none';
       toastClone.style.opacity = '1';
       toastClone.style.visibility = 'visible';
-      toastClone.style.border = '4px solid red'; // DEBUG
       toastClone.classList.remove('opacity-0', 'invisible');
       toastClone.classList.add('opacity-100', 'visible');
       toastClone.querySelectorAll('.opacity-0, .invisible').forEach(t => {

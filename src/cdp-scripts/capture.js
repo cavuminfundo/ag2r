@@ -55,8 +55,17 @@ export const CAPTURE_SCRIPT = `
     try {
       const cs = getComputedStyle(el);
       if (cs.position === 'fixed' || cs.position === 'absolute') {
-        el.setAttribute('data-ag-remove', '1');
-        marked.push(el);
+        const cls = (el.className || '').toString();
+        const role = el.getAttribute('role');
+        const isToast = el.hasAttribute('data-radix-toast-list') || 
+                        el.hasAttribute('data-sonner-toaster') ||
+                        role === 'status' || role === 'alert' ||
+                        cls.includes('toast') || cls.includes('sonner');
+        
+        if (!isToast) {
+          el.setAttribute('data-ag-remove', '1');
+          marked.push(el);
+        }
       }
       if (cs.position === 'sticky') {
         el.setAttribute('data-ag-sticky', '1');

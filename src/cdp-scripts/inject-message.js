@@ -61,20 +61,22 @@ export function buildInjectScript(safeText, appendMode) {
     submitBtn = null;
   }
 
-  // Fallback: look for arrow icon button near the editor
+  // Fallback: look for arrow icon button specifically INSIDE the editor's container
   if (!submitBtn) {
-    const arrow = document.querySelector('svg.lucide-arrow-right, svg.lucide-arrow-up');
-    if (arrow) submitBtn = arrow.closest('button');
+    const container = editor.closest('#antigravity\\\\.agentSidePanelInputBox') || editor.closest('form') || editor.parentElement;
+    if (container) {
+      const arrow = container.querySelector('svg.lucide-arrow-right, svg.lucide-arrow-up, svg.lucide-send');
+      if (arrow) submitBtn = arrow.closest('button');
+    }
   }
 
-  // Fallback: form submit or sibling button
+  // Fallback: the last button in the editor's container
   if (!submitBtn) {
-    const form = editor.closest('form');
-    if (form) submitBtn = form.querySelector('button[type="submit"], button:last-of-type');
-  }
-  if (!submitBtn) {
-    const parent = editor.parentElement;
-    if (parent) submitBtn = parent.querySelector('button');
+    const container = editor.closest('#antigravity\\\\.agentSidePanelInputBox') || editor.closest('form') || editor.parentElement;
+    if (container) {
+      const btns = Array.from(container.querySelectorAll('button'));
+      if (btns.length > 0) submitBtn = btns[btns.length - 1];
+    }
   }
 
   if (submitBtn) {

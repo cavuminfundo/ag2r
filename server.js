@@ -772,7 +772,8 @@ function fireBurstCaptures(delays) {
             (snapshot.btwHtml || '') +
             (snapshot.modelName || '') +
             (snapshot.environmentName || '') +
-            (snapshot.branchName || '')
+            (snapshot.branchName || '') +
+            (snapshot.editorText || '')
           );
           if (hash !== lastSnapshotHash) {
             cachedSnapshot = snapshot;
@@ -825,7 +826,8 @@ function startPolling() {
           (snapshot.btwHtml || '') +
           (snapshot.modelName || '') +
           (snapshot.environmentName || '') +
-          (snapshot.branchName || '')
+          (snapshot.branchName || '') +
+          (snapshot.editorText || '')
         );
 
         // Only broadcast and update cache when content actually changes

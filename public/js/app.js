@@ -372,6 +372,15 @@ async function loadSnapshot() {
 
     const data = await res.json();
 
+    // Synchronize remote editor text back to mobile if it wasn't successfully sent.
+    // (e.g., if agent was processing and the send was rejected by AG UI).
+    if (data.editorText && data.editorText.trim().length > 0 && messageInput.value.trim() === '' && !isSending) {
+      messageInput.value = data.editorText;
+      messageInput.style.height = 'auto';
+      messageInput.style.height = (messageInput.scrollHeight) + 'px';
+      updateActionButton();
+    }
+
     // Skip re-render if content hasn't changed — prevents destroying text
     // selection when polling returns identical content (e.g. agent idle).
     if (data.hash && data.hash === lastHash) return;

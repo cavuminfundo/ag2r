@@ -123,6 +123,42 @@ export const CAPTURE_SCRIPT = `
   // -- 11. Force paragraph display block --
   clone.querySelectorAll('p').forEach(p => { p.style.display = 'block'; });
 
+  // -- 11.5 Capture Toasts/Snackbars from body --
+  document.body.querySelectorAll('ol[role="region"], ul[role="region"], [role="status"], [role="alert"]').forEach(toast => {
+    // Only capture actual toasts that are outside the chat container and visible
+    const isToast = toast.hasAttribute('data-radix-toast-list') || 
+                    toast.getAttribute('role') === 'status' || 
+                    toast.getAttribute('role') === 'alert' ||
+                    toast.className.includes('fixed') ||
+                    toast.className.includes('toast');
+    if (isToast && !container.contains(toast) && toast.textContent.trim().length > 0 && toast.offsetParent !== null) {
+      const toastClone = toast.cloneNode(true);
+      // Force position so it appears at the bottom of the chat view
+      toastClone.style.position = 'absolute';
+      toastClone.style.bottom = '120px';
+      toastClone.style.left = '50%';
+      toastClone.style.transform = 'translateX(-50%)';
+      toastClone.style.zIndex = '9999';
+      toastClone.style.width = 'max-content';
+      toastClone.style.maxWidth = '90%';
+      toastClone.style.pointerEvents = 'none';
+      clone.appendChild(toastClone);
+    }
+  });
+
+  // -- 11.6 Extract Remote Editor Text --
+  let editorText = '';
+  const editorCandidates = document.querySelectorAll(
+    '[data-lexical-editor="true"], [contenteditable="true"][role="textbox"], [contenteditable="true"]'
+  );
+  let activeEditor = null;
+  for (const el of editorCandidates) {
+    if (el.offsetParent !== null) activeEditor = el;
+  }
+  if (activeEditor) {
+    editorText = activeEditor.innerText || activeEditor.textContent || '';
+  }
+
   // -- 12. Get chat HTML + strip [object Object] --
   let html = clone.innerHTML;
   html = html.replace(/class="([^"]*)"/g, (match, classes) => {
@@ -652,6 +688,6 @@ export const CAPTURE_SCRIPT = `
     console.debug('[AG2R] BTW capture error:', e.message);
   }
 
-  return { html, css, agentRunning, scrollInfo, leftSidebarHtml, sidebarAttentionItems, sidebarSignature, isSidebarOpen, isNewSessionPage, isInputBoxHidden, isSubagentView, parentConversationName, subagentInfoHtml, dropdownHtml, dialogHtml, settingsHtml, activeArtifactUri, activeFileUri, askQuestionHtml, permissionHtml, environmentName, branchName, modelName, btwHtml };
+  return { html, css, agentRunning, scrollInfo, leftSidebarHtml, sidebarAttentionItems, sidebarSignature, isSidebarOpen, isNewSessionPage, isInputBoxHidden, isSubagentView, parentConversationName, subagentInfoHtml, dropdownHtml, dialogHtml, settingsHtml, activeArtifactUri, activeFileUri, askQuestionHtml, permissionHtml, environmentName, branchName, modelName, btwHtml, editorText };
 })()
 `;

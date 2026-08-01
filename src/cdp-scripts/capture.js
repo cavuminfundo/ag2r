@@ -90,40 +90,25 @@ export const CAPTURE_SCRIPT = `
   });
   untagAll(chatTagged);
 
-  // -- 7. Clean clone: remove editor/input (skip on new session page — it IS the input) --
+  // -- 7. Clean clone: remove MAIN editor/input (skip on new session page — it IS the input) --
   if (!isNewSessionPage) {
-    ['[contenteditable="true"]', '[data-lexical-editor]', '[role="textbox"]', 'form'].forEach(sel => {
-      clone.querySelectorAll(sel).forEach(el => {
-        let target = el;
-        while (target.parentElement && target.parentElement !== clone) {
-          const btn = target.parentElement.querySelector('button, [role="button"]');
-          if (/^(Allow|Deny|Review|Run|Confirm|Accept|Reject)/i.test(btn?.textContent?.trim() || '')) break;
-          target = target.parentElement;
-        }
-        if (target.parentElement === clone) {
-          // IMPORTANT: The queued messages live here! 
-          // Nuke ONLY the text editor/form so we don't see the desktop input box
-          
-          if (target.innerHTML.includes('lucide-pencil') || target.innerHTML.includes('lucide-pen')) {
-            console.log('===== FOUND PENCIL ICON IN INPUT WRAPPER =====');
-            console.log(target.outerHTML);
-            console.log('==============================================');
-          }
-          
-          el.remove();
-          
-          // Make the wrapper invisible/zero-padding so it doesn't take up empty space,
-          // but leaves any queued message pills perfectly visible at the bottom of the chat!
-          target.style.background = 'transparent';
-          target.style.border = 'none';
-          target.style.padding = '0';
-          target.style.margin = '0';
-          target.style.minHeight = '0';
-          target.style.boxShadow = 'none';
-        }
-        else el.remove();
-      });
-    });
+    const mainInputBox = clone.querySelector('#antigravity\\\\.agentSidePanelInputBox');
+    if (mainInputBox) {
+      // Nuke ONLY the text editor/form so we don't see the desktop input box
+      const editor = mainInputBox.querySelector('[contenteditable="true"], [data-lexical-editor], [role="textbox"], form');
+      if (editor) {
+        editor.remove();
+      }
+      
+      // Make the wrapper invisible/zero-padding so it doesn't take up empty space,
+      // but leaves any queued message pills (if they happen to be inside) perfectly visible!
+      mainInputBox.style.background = 'transparent';
+      mainInputBox.style.border = 'none';
+      mainInputBox.style.padding = '0';
+      mainInputBox.style.margin = '0';
+      mainInputBox.style.minHeight = '0';
+      mainInputBox.style.boxShadow = 'none';
+    }
   }
 
   // -- 8. Remove fixed/absolute overlays (protect action bars) --

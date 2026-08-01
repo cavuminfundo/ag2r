@@ -356,11 +356,16 @@ export const CAPTURE_SCRIPT = `
           dropdownHtml = clone.outerHTML;
         }
 
-        // Dialog/modal (fixed overlay with buttons)
+        // Dialog/modal (fixed overlay with buttons) or Popover dialog (role="dialog")
         const cls = (target.className || '').toString();
-        if (cls.includes('fixed') && cls.includes('inset-0')) {
+        const isFixedInset = cls.includes('fixed') && cls.includes('inset-0');
+        const isDialogRole = target.getAttribute('role') === 'dialog';
+        
+        if (isFixedInset || isDialogRole) {
           // Identify if it's a large settings/preferences modal
-          const isLargeModal = target.querySelector('[class*="max-w-4xl"], [class*="max-w-5xl"], [class*="max-w-6xl"]') || target.querySelector('[role="tablist"]');
+          // Check both inner elements and the target itself
+          const isLargeModal = target.querySelector('[class*="max-w-4xl"], [class*="max-w-5xl"], [class*="max-w-6xl"], [role="tablist"]') || 
+                               cls.includes('max-w-4xl') || cls.includes('max-w-5xl') || cls.includes('max-w-6xl');
           
           if (isLargeModal) {
             if (!settingsHtml) {
@@ -378,15 +383,6 @@ export const CAPTURE_SCRIPT = `
             clone.querySelectorAll('style').forEach(s => s.remove());
             dialogHtml = clone.outerHTML;
           }
-        }
-
-        // Popover dialog (role="dialog" portal, e.g. environment selector, context menus)
-        if (!dialogHtml && target.getAttribute('role') === 'dialog') {
-          const tagged = tagInteractives(target, 'dialog', true, false);
-          const clone = target.cloneNode(true);
-          untagAll(tagged);
-          clone.querySelectorAll('style').forEach(s => s.remove());
-          dialogHtml = clone.outerHTML;
         }
       }
     }

@@ -90,24 +90,46 @@ export const CAPTURE_SCRIPT = `
   });
   untagAll(chatTagged);
 
-  // -- 7. Clean clone: remove MAIN editor/input (skip on new session page — it IS the input) --
+  // -- 7. Clean clone: capture queue/tasks but remove MAIN editor --
   if (!isNewSessionPage) {
-    const mainInputBox = clone.querySelector('#antigravity\\\\.agentSidePanelInputBox');
-    if (mainInputBox) {
+    const realInputBox = document.getElementById('antigravity.agentSidePanelInputBox');
+    if (realInputBox && !container.contains(realInputBox)) {
+      // Tag interactives on the live DOM first so coordinates work
+      const queueTagged = tagInteractives(realInputBox, 'queue', false, true);
+      const boxClone = realInputBox.cloneNode(true);
+      untagAll(queueTagged);
+      
       // Nuke ONLY the text editor/form so we don't see the desktop input box
-      const editor = mainInputBox.querySelector('[contenteditable="true"], [data-lexical-editor], [role="textbox"], form');
-      if (editor) {
-        editor.remove();
+      // In Antigravity, the text input is wrapped in a .bg-card, while queue is in a sibling div
+      const bgCard = boxClone.querySelector('.bg-card');
+      if (bgCard) {
+        bgCard.remove();
+      } else {
+        // Fallback if .bg-card not found: just remove the editor itself
+        const editor = boxClone.querySelector('[contenteditable="true"], [data-lexical-editor], [role="textbox"], form');
+        if (editor) editor.remove();
       }
       
-      // Make the wrapper invisible/zero-padding so it doesn't take up empty space,
-      // but leaves any queued message pills (if they happen to be inside) perfectly visible!
-      mainInputBox.style.background = 'transparent';
-      mainInputBox.style.border = 'none';
-      mainInputBox.style.padding = '0';
-      mainInputBox.style.margin = '0';
-      mainInputBox.style.minHeight = '0';
-      mainInputBox.style.boxShadow = 'none';
+      // Make the wrapper float at the bottom (above mobile input) and invisible so it doesn't block clicks
+      boxClone.style.position = 'fixed';
+      boxClone.style.bottom = '80px';
+      boxClone.style.left = '16px';
+      boxClone.style.right = '16px';
+      boxClone.style.zIndex = '9000';
+      boxClone.style.background = 'transparent';
+      boxClone.style.border = 'none';
+      boxClone.style.padding = '0';
+      boxClone.style.margin = '0';
+      boxClone.style.minHeight = '0';
+      boxClone.style.boxShadow = 'none';
+      boxClone.style.pointerEvents = 'none'; // wrapper shouldn't block clicks on chat behind it
+      
+      // Let children (pills/tasks) receive clicks
+      Array.from(boxClone.children).forEach(child => {
+        child.style.pointerEvents = 'auto';
+      });
+      
+      clone.appendChild(boxClone);
     }
   }
 

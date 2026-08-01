@@ -148,6 +148,16 @@ if (_urlParams.get('sidebar') === 'open') {
 }
 
 // ─────────────────────────────────────────────
+// Hardware Back Button (Mobile) Support
+// ─────────────────────────────────────────────
+window.addEventListener('popstate', (e) => {
+  if (!settingsOverlay.classList.contains('hidden')) {
+    settingsOverlay.classList.add('hidden');
+    fetchAPI('/dismiss-settings', { method: 'POST' }).catch(() => {});
+  }
+});
+
+// ─────────────────────────────────────────────
 // Dynamic Input Bar Height Tracking
 // ─────────────────────────────────────────────
 // Updates --input-bar-height CSS variable so quick-actions and scroll-fab
@@ -909,7 +919,10 @@ async function loadSnapshot() {
         settingsContent.innerHTML = data.settingsHtml;
         addClickProxyHandlers(settingsContent);
       }
-      settingsOverlay.classList.remove('hidden');
+      if (settingsOverlay.classList.contains('hidden')) {
+        settingsOverlay.classList.remove('hidden');
+        window.history.pushState({ modal: 'settings' }, '');
+      }
     } else {
       settingsOverlay.classList.add('hidden');
       settingsContent._lastHtml = '';

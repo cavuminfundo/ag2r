@@ -53,24 +53,26 @@ export const CAPTURE_SCRIPT = `
   const marked = [];
   container.querySelectorAll('*').forEach(el => {
     try {
+      const cls = (el.className || '').toString();
+      const role = el.getAttribute('role');
+      const text = (el.textContent || '').toLowerCase();
+      const isToast = el.hasAttribute('data-radix-toast-list') || 
+                      el.hasAttribute('data-sonner-toaster') ||
+                      role === 'status' || role === 'alert' ||
+                      cls.includes('toast') || cls.includes('sonner') ||
+                      (text.length < 50 && (text.includes('queue') || text.includes('attesa') || text.includes('coda') ||
+                      text.includes('busy') || text.includes('progress') || text.includes('working') ||
+                      text.includes('elaborazione') || text.includes('message')));
+      
+      if (isToast) {
+        el.setAttribute('data-ag-toast', '1');
+        marked.push(el);
+      }
+      
       const cs = getComputedStyle(el);
       if (cs.position === 'fixed' || cs.position === 'absolute') {
-        const cls = (el.className || '').toString();
-        const role = el.getAttribute('role');
-        const text = (el.textContent || '').toLowerCase();
-        const isToast = el.hasAttribute('data-radix-toast-list') || 
-                        el.hasAttribute('data-sonner-toaster') ||
-                        role === 'status' || role === 'alert' ||
-                        cls.includes('toast') || cls.includes('sonner') ||
-                        text.includes('queue') || text.includes('attesa') || text.includes('coda') ||
-                        text.includes('busy') || text.includes('progress') || text.includes('working') ||
-                        text.includes('elaborazione') || text.includes('message');
-        
         if (!isToast) {
           el.setAttribute('data-ag-remove', '1');
-          marked.push(el);
-        } else {
-          el.setAttribute('data-ag-toast', '1');
           marked.push(el);
         }
       }
@@ -102,7 +104,11 @@ export const CAPTURE_SCRIPT = `
           if (/^(Allow|Deny|Review|Run|Confirm|Accept|Reject)/i.test(btn?.textContent?.trim() || '')) break;
           target = target.parentElement;
         }
-        if (target.parentElement === clone) target.remove();
+        if (target.parentElement === clone) {
+          // IMPORTANT: Extract any toasts from the input area BEFORE deleting it!
+          target.querySelectorAll('[data-ag-toast="1"]').forEach(t => clone.appendChild(t));
+          target.remove();
+        }
         else el.remove();
       });
     });

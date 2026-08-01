@@ -14,6 +14,7 @@ let userScrolledAway = false;
 let _lastContentFingerprint = null; // tracks conversation identity for scroll reset
 let debugMode = false;
 let featureFlags = {}; // populated from server on WS connect
+let isDismissingSettings = false;
 
 // Telemetry: previous snapshot values for change detection
 let _prevModelName = null;
@@ -153,7 +154,10 @@ if (_urlParams.get('sidebar') === 'open') {
 window.addEventListener('popstate', (e) => {
   if (!settingsOverlay.classList.contains('hidden')) {
     settingsOverlay.classList.add('hidden');
-    fetchAPI('/dismiss-settings', { method: 'POST' }).catch(() => {});
+    isDismissingSettings = true;
+    fetchAPI('/dismiss-settings', { method: 'POST' }).catch(() => {}).finally(() => {
+      setTimeout(() => { isDismissingSettings = false; }, 2000);
+    });
   }
 });
 
@@ -912,7 +916,7 @@ async function loadSnapshot() {
     }
 
     // Render Settings overlay if AG's settings modal is open
-    if (data.settingsHtml) {
+    if (data.settingsHtml && !isDismissingSettings) {
       // Only update DOM when content actually changes to preserve scroll position
       if (settingsContent._lastHtml !== data.settingsHtml) {
         settingsContent._lastHtml = data.settingsHtml;
@@ -924,7 +928,9 @@ async function loadSnapshot() {
         window.history.pushState({ modal: 'settings' }, '');
       }
     } else {
-      settingsOverlay.classList.add('hidden');
+      if (!settingsOverlay.classList.contains('hidden') && !isDismissingSettings) {
+        settingsOverlay.classList.add('hidden');
+      }
       settingsContent._lastHtml = '';
     }
 
@@ -1828,7 +1834,10 @@ permissionBackdrop.addEventListener('click', async () => {
 // Settings back button — dismiss settings
 settingsBack.addEventListener('click', () => {
   settingsOverlay.classList.add('hidden');
-  fetchAPI('/dismiss-settings', { method: 'POST' }).catch(() => {});
+  isDismissingSettings = true;
+  fetchAPI('/dismiss-settings', { method: 'POST' }).catch(() => {}).finally(() => {
+    setTimeout(() => { isDismissingSettings = false; }, 2000);
+  });
 });
 
 // Refresh button — hard reload for PWA (no pull-to-refresh on home screen)

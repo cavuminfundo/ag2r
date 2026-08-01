@@ -101,9 +101,18 @@ export const CAPTURE_SCRIPT = `
           target = target.parentElement;
         }
         if (target.parentElement === clone) {
-          // IMPORTANT: Extract any toasts from the input area BEFORE deleting it!
-          target.querySelectorAll('[data-ag-toast="1"]').forEach(t => clone.appendChild(t));
-          target.remove();
+          // IMPORTANT: The queued messages live here! 
+          // Nuke ONLY the text editor/form so we don't see the desktop input box
+          el.remove();
+          
+          // Make the wrapper invisible/zero-padding so it doesn't take up empty space,
+          // but leaves any queued message pills perfectly visible at the bottom of the chat!
+          target.style.background = 'transparent';
+          target.style.border = 'none';
+          target.style.padding = '0';
+          target.style.margin = '0';
+          target.style.minHeight = '0';
+          target.style.boxShadow = 'none';
         }
         else el.remove();
       });

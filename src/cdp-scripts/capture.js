@@ -103,6 +103,13 @@ export const CAPTURE_SCRIPT = `
         if (target.parentElement === clone) {
           // IMPORTANT: The queued messages live here! 
           // Nuke ONLY the text editor/form so we don't see the desktop input box
+          
+          if (target.innerHTML.includes('lucide-pencil') || target.innerHTML.includes('lucide-pen')) {
+            console.log('===== FOUND PENCIL ICON IN INPUT WRAPPER =====');
+            console.log(target.outerHTML);
+            console.log('==============================================');
+          }
+          
           el.remove();
           
           // Make the wrapper invisible/zero-padding so it doesn't take up empty space,

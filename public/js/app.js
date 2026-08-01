@@ -10,6 +10,7 @@ let agentRunning = false;
 let cdpConnected = false;
 let isRendering = false;
 let isSending = false;
+let lastSendTime = 0;
 let userScrolledAway = false;
 let _lastContentFingerprint = null; // tracks conversation identity for scroll reset
 let debugMode = false;
@@ -388,7 +389,8 @@ async function loadSnapshot() {
 
     // Synchronize remote editor text back to mobile if it wasn't successfully sent.
     // (e.g., if agent was processing and the send was rejected by AG UI).
-    if (data.editorText && data.editorText.trim().length > 0 && messageInput.value.trim() === '' && !isSending) {
+    // Allow a 3-second cooldown after sending to prevent race conditions where AG hasn't cleared its editor yet.
+    if (data.editorText && data.editorText.trim().length > 0 && messageInput.value.trim() === '' && !isSending && (Date.now() - lastSendTime > 3000)) {
       messageInput.value = data.editorText;
       messageInput.style.height = 'auto';
       messageInput.style.height = (messageInput.scrollHeight) + 'px';
@@ -427,6 +429,28 @@ async function loadSnapshot() {
     const capturedZone = chatContent.querySelector('.ag2r-ns-captured');
     const skipChatRender = data.isNewSessionPage && capturedZone;
 
+    // Detect conversation switch by fingerprinting the first portion of content or page state.
+    // Only reset scroll and input state on actual conversation changes, not on content updates.
+    const fingerprint = data.isNewSessionPage ? 'new-session-page' : (data.html ? data.html.slice(0, 200) : '');
+    if (fingerprint !== _lastContentFingerprint) {
+      _lastContentFingerprint = fingerprint;
+      userScrolledAway = false;
+      
+      // Force sync the input box state when switching conversations
+      messageInput.value = data.editorText || '';
+      messageInput.style.height = 'auto';
+      messageInput.style.height = (messageInput.scrollHeight) + 'px';
+      updateActionButton();
+
+      // Conversation changed — close the right sidebar to prevent stale
+      // isSidebarOpen state from briefly opening the artifacts panel.
+      if (rightSidebar.classList.contains('open')) {
+        rightSidebar.classList.remove('open');
+        rightSidebar.inert = true;
+        rightSidebarOverlay.classList.remove('visible');
+      }
+    }
+
     if (skipChatRender) {
       // Only update if captured content actually changed — avoids
       // detach/reattach of the input-wrapper which steals keyboard focus.
@@ -450,22 +474,6 @@ async function loadSnapshot() {
         }
       }
     } else {
-      // Detect conversation switch by fingerprinting the first portion of content.
-      // Only reset scroll on actual conversation changes, not on content updates
-      // (which happen every snapshot during agent streaming).
-      const fingerprint = data.html ? data.html.slice(0, 200) : '';
-      if (fingerprint !== _lastContentFingerprint) {
-        _lastContentFingerprint = fingerprint;
-        userScrolledAway = false;
-        // Conversation changed — close the right sidebar to prevent stale
-        // isSidebarOpen state from briefly opening the artifacts panel.
-        // The next snapshot will re-open it if AG's sidebar is truly open.
-        if (rightSidebar.classList.contains('open')) {
-          rightSidebar.classList.remove('open');
-          rightSidebar.inert = true;
-          rightSidebarOverlay.classList.remove('visible');
-        }
-      }
 
       // Rescue the input-wrapper back to the footer before wiping chatContent.
       // It may have been moved into the captured zone by renderNewSessionPage.
@@ -1286,6 +1294,7 @@ async function sendMessage() {
   setTimeout(loadSnapshot, 800);
   setTimeout(loadSnapshot, 2000);
 
+  lastSendTime = Date.now();
   isSending = false;
   messageInput.disabled = false;
   actionBtn.disabled = false;
@@ -2089,6 +2098,20 @@ function hideAgDuplicateControls(zone) {
   zone.querySelectorAll('[aria-label="Add context"], [aria-label="Add Content"]').forEach(el => {
     el.style.display = 'none';
   });
+
+  // Hide the original AG input placeholder so it doesn't overlap with AG2R's native placeholder
+  // Use a TreeWalker to forcefully find the exact text node and hide its parent.
+  const walker = document.createTreeWalker(zone, NodeFilter.SHOW_TEXT, null, false);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.nodeValue && node.nodeValue.includes('@ to mention')) {
+      if (node.parentElement) {
+        node.parentElement.style.setProperty('display', 'none', 'important');
+        node.parentElement.style.setProperty('opacity', '0', 'important');
+        node.parentElement.style.setProperty('visibility', 'hidden', 'important');
+      }
+    }
+  }
 }
 
 // ─────────────────────────────────────────────

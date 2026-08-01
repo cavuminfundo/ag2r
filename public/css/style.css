@@ -2702,3 +2702,19 @@ body {
 #chat-content .opacity-0:has([aria-label*="Undo"]) {
   opacity: 1 !important;
 }
+
+/* Force hide Antigravity's original placeholder to prevent overlap with AG2R native input */
+.ag2r-ns-captured [contenteditable] ~ *,
+.ag2r-ns-captured [data-lexical-editor] ~ *,
+.ag2r-ns-captured [role="textbox"] ~ * {
+  display: none !important;
+}
+
+/* Force hide any left-over placeholder text from AG after input-wrapper injection */
+.ag2r-ns-captured .input-wrapper ~ p,
+.ag2r-ns-captured .input-wrapper ~ div[class*="pointer-events-none"],
+.ag2r-ns-captured .input-wrapper ~ span[class*="pointer-events-none"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}

@@ -2,7 +2,7 @@
 
 # AG2R — Antigravity 2.0 Remote
 
-[![Antigravity Compatibility](https://img.shields.io/badge/Last_tested_with_Antigravity-v2.2.1-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48dGV4dCB4PSIyIiB5PSIxMyIgZm9udC1zaXplPSIxMyI+8J+aqDwvdGV4dD48L3N2Zz4=)](https://antigravity.google/releases) <sub>Not working? See [Branching Strategy](#-branching-strategy)</sub>
+[![Antigravity Compatibility](https://img.shields.io/badge/Last_tested_with_Antigravity-v2.3.1-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48dGV4dCB4PSIyIiB5PSIxMyIgZm9udC1zaXplPSIxMyI+8J+aqDwvdGV4dD48L3N2Zz4=)](https://antigravity.google/releases) <sub>Not working? See [Branching Strategy](#-branching-strategy)</sub>
 
 A lightweight mobile remote interface for monitoring and interacting with [Antigravity](https://antigravity.dev) AI coding sessions from your phone — on Wi-Fi, hotspot, or anywhere in the world.
 
@@ -322,11 +322,11 @@ The `tunnel-watchdog.sh` script can similarly keep a Cloudflare tunnel alive, an
 
 ## 🌿 Branching Strategy
 
-| Branch | Purpose | Stability |
-|--------|---------|----------|
-| `main` | Current stable version — works with the AG version shown in the badge above | ✅ Stable |
-| `prev-stable` | Previous stable version — frozen snapshot of `main` before the latest merge | ✅ Stable |
-| `next` | Bleeding edge — being tested against an upcoming AG version | ⚠️ May break |
+| Branch | Purpose | AG Version | Stability |
+|--------|---------|------------|-----------|
+| `main` | Current stable version | See badge above | ✅ Stable |
+| `prev-stable` | Previous stable — frozen snapshot of `main` before the latest merge | v2.2.1 | ✅ Stable |
+| `next` | Bleeding edge — being tested against an upcoming AG version | Latest | ⚠️ May break |
 
 ### How it works
 
@@ -341,7 +341,7 @@ When a new Antigravity version ships, the developer's workflow is:
 
 **Start with `main`.** It works with the AG version shown in the badge at the top.
 
-If `main` is broken (typically right after a new AG release), use `prev-stable` — it's a frozen snapshot that works with the previous AG version. Install that AG version and use `prev-stable` until `main` is updated.
+If `main` is broken (typically right after a new AG release), use `prev-stable` — it's a frozen snapshot that works with **Antigravity v2.2.1**. Install that AG version from the [releases page](https://antigravity.google/releases) and use `prev-stable` until `main` is updated.
 
 ```bash
 # Fall back to the previous stable version

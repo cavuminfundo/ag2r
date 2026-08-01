@@ -124,17 +124,19 @@ export const CAPTURE_SCRIPT = `
   clone.querySelectorAll('p').forEach(p => { p.style.display = 'block'; });
 
   // -- 11.5 Capture Toasts/Snackbars from body --
-  document.body.querySelectorAll('ol[role="region"], ul[role="region"], [role="status"], [role="alert"]').forEach(toast => {
+  document.body.querySelectorAll('ol[role="region"], ul[role="region"], [role="status"], [role="alert"], [data-sonner-toaster], [data-radix-toast-list]').forEach(toast => {
     // Only capture actual toasts that are outside the chat container and visible
     const isToast = toast.hasAttribute('data-radix-toast-list') || 
+                    toast.hasAttribute('data-sonner-toaster') ||
                     toast.getAttribute('role') === 'status' || 
                     toast.getAttribute('role') === 'alert' ||
                     toast.className.includes('fixed') ||
-                    toast.className.includes('toast');
+                    toast.className.includes('toast') ||
+                    toast.className.includes('sonner');
     if (isToast && !container.contains(toast) && toast.textContent.trim().length > 0 && toast.offsetParent !== null) {
       const toastClone = toast.cloneNode(true);
       // Force position so it appears at the bottom of the chat view
-      toastClone.style.position = 'absolute';
+      toastClone.style.position = 'fixed';
       toastClone.style.bottom = '120px';
       toastClone.style.left = '50%';
       toastClone.style.transform = 'translateX(-50%)';
@@ -215,6 +217,11 @@ export const CAPTURE_SCRIPT = `
     if (leftRoot && leftRoot.offsetParent !== null) {
       const leftTagged = tagInteractives(leftRoot, 'left', true, true);
       const leftClone = leftRoot.cloneNode(true);
+      // Make group-hover icons (like the New Conversation "+" button) always visible on mobile
+      leftClone.querySelectorAll('.opacity-0, .invisible').forEach(el => {
+        el.classList.remove('opacity-0', 'invisible');
+        el.classList.add('opacity-100', 'visible');
+      });
       untagAll(leftTagged);
       leftSidebarHtml = leftClone.outerHTML;
       // Extract conversation IDs that need attention, classified by type.

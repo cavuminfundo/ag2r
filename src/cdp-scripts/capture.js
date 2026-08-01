@@ -333,6 +333,7 @@ export const CAPTURE_SCRIPT = `
   // AG renders these outside #root as direct body children.
   let dropdownHtml = null;
   let dialogHtml = null;
+  let settingsHtml = null;
   try {
     for (const child of document.body.children) {
       if (child.tagName === 'SCRIPT' || child.tagName === 'STYLE') continue;
@@ -357,12 +358,26 @@ export const CAPTURE_SCRIPT = `
 
         // Dialog/modal (fixed overlay with buttons)
         const cls = (target.className || '').toString();
-        if (!dialogHtml && cls.includes('fixed') && cls.includes('inset-0')) {
-          const tagged = tagInteractives(target, 'dialog', true, false);
-          const clone = target.cloneNode(true);
-          untagAll(tagged);
-          clone.querySelectorAll('style').forEach(s => s.remove());
-          dialogHtml = clone.outerHTML;
+        if (cls.includes('fixed') && cls.includes('inset-0')) {
+          // Identify if it's a large settings/preferences modal
+          const isLargeModal = target.querySelector('[class*="max-w-4xl"], [class*="max-w-5xl"], [class*="max-w-6xl"]') || target.querySelector('[role="tablist"]');
+          
+          if (isLargeModal) {
+            if (!settingsHtml) {
+              const settingsCard = target.querySelector('[class*="max-w-4xl"], [class*="max-w-5xl"], [class*="max-w-6xl"], [class*="rounded-2xl"]') || target;
+              const tagged = tagInteractives(settingsCard, 'settings', true, false);
+              const clone = settingsCard.cloneNode(true);
+              untagAll(tagged);
+              clone.querySelectorAll('style').forEach(s => s.remove());
+              settingsHtml = clone.outerHTML;
+            }
+          } else if (!dialogHtml) {
+            const tagged = tagInteractives(target, 'dialog', true, false);
+            const clone = target.cloneNode(true);
+            untagAll(tagged);
+            clone.querySelectorAll('style').forEach(s => s.remove());
+            dialogHtml = clone.outerHTML;
+          }
         }
 
         // Popover dialog (role="dialog" portal, e.g. environment selector, context menus)
@@ -381,8 +396,8 @@ export const CAPTURE_SCRIPT = `
     console.debug('[AG2R] Portal capture error:', e.message);
   }
 
-  // -- 8b. Capture Settings modal (rendered inside #root, not body) --
-  let settingsHtml = null;
+  // -- 8b. Capture Settings modal (fallback if rendered inside #root, not body) --
+  if (!settingsHtml) {
   try {
     const settingsOverlay = document.querySelector('#root .fixed.inset-0[class*="z-[5000]"]');
     if (settingsOverlay && settingsOverlay.getBoundingClientRect().width > 0) {
@@ -399,6 +414,7 @@ export const CAPTURE_SCRIPT = `
     }
   } catch (e) {
     console.debug('[AG2R] Settings capture error:', e.message);
+  }
   }
 
   // -- 9. Detect active tab URI for commenting --

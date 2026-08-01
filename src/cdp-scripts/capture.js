@@ -67,6 +67,9 @@ export const CAPTURE_SCRIPT = `
         if (!isToast) {
           el.setAttribute('data-ag-remove', '1');
           marked.push(el);
+        } else {
+          el.setAttribute('data-ag-toast', '1');
+          marked.push(el);
         }
       }
       if (cs.position === 'sticky') {
@@ -114,6 +117,17 @@ export const CAPTURE_SCRIPT = `
     else el.removeAttribute('data-ag-remove');
   });
 
+  // -- 8.5 Ensure Toasts inside chat container are visible --
+  clone.querySelectorAll('[data-ag-toast="1"]').forEach(el => {
+    el.removeAttribute('data-ag-toast');
+    el.classList.remove('opacity-0', 'invisible');
+    el.classList.add('opacity-100', 'visible');
+    el.style.opacity = '1';
+    el.style.visibility = 'visible';
+    el.style.zIndex = '9999';
+    el.style.bottom = '120px'; // force above ag2r input bar
+  });
+
   // -- 9. Force sticky backgrounds --
   clone.querySelectorAll('[data-ag-sticky]').forEach(el => {
     el.style.backgroundColor = '#101010';
@@ -155,6 +169,16 @@ export const CAPTURE_SCRIPT = `
       toastClone.style.width = 'max-content';
       toastClone.style.maxWidth = '90%';
       toastClone.style.pointerEvents = 'none';
+      toastClone.style.opacity = '1';
+      toastClone.style.visibility = 'visible';
+      toastClone.classList.remove('opacity-0', 'invisible');
+      toastClone.classList.add('opacity-100', 'visible');
+      toastClone.querySelectorAll('.opacity-0, .invisible').forEach(t => {
+        t.classList.remove('opacity-0', 'invisible');
+        t.classList.add('opacity-100', 'visible');
+        t.style.opacity = '1';
+        t.style.visibility = 'visible';
+      });
       clone.appendChild(toastClone);
     }
   });

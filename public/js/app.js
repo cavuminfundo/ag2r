@@ -2126,7 +2126,25 @@ function renderSidebar(container, html) {
       /<button(\s+(?:type="button"\s+)?class="hidden group-hover:flex[^"]*"[^>]*)>([\s\S]*?)<\/button>/g,
       '<span$1>$2</span>'
     );
+
+    // Save scroll positions to prevent the sidebar from bouncing to the top on every DOM update
+    const scrollStates = new Map();
+    scrollStates.set('root', container.scrollTop);
+    container.querySelectorAll('*').forEach((el, i) => {
+      if (el.scrollTop > 0) scrollStates.set('top_' + i, el.scrollTop);
+      if (el.scrollLeft > 0) scrollStates.set('left_' + i, el.scrollLeft);
+    });
+
     container.innerHTML = html;
+
+    // Restore scroll positions
+    container.scrollTop = scrollStates.get('root') || 0;
+    container.querySelectorAll('*').forEach((el, i) => {
+      const top = scrollStates.get('top_' + i);
+      const left = scrollStates.get('left_' + i);
+      if (top !== undefined) el.scrollTop = top;
+      if (left !== undefined) el.scrollLeft = left;
+    });
     // Strip all h-full classes — they create percentage-height chains that
     // collapse to zero. Let content size intrinsically so overflow scrolls.
     // Apply this ONLY to the right sidebar to avoid breaking the left sidebar's native flex scroll.

@@ -261,7 +261,17 @@ body {
 
 /* Prevent Tailwind's active:opacity-* from making the text flash/fade when clicking to select */
 #right-sidebar-content *:not(button):not(a):not([role="button"]):not([role="tab"]):active {
-  opacity: 1 !important;
+  background: transparent !important;
+}
+
+/* Prevent icons from squishing and ensure gaps in a2.5 */
+.sidebar-fill svg,
+.sidebar-fill .material-symbols-rounded {
+  flex-shrink: 0 !important;
+}
+.sidebar-fill [role="button"],
+.sidebar-fill a {
+  gap: 8px !important;
 }
 
 /* Ensure captured AG content inherits visible colors */
@@ -863,6 +873,7 @@ body {
 }
 
 .message-input {
+  box-sizing: border-box;
   width: 100%;
   background: transparent;
   border: none;
@@ -876,7 +887,9 @@ body {
   min-height: 63px;
   max-height: 120px;
   overflow-y: auto;
-  padding: 0;
+  padding: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .message-input:focus,
@@ -1865,10 +1878,10 @@ body {
   border: none !important;
 }
 
-/* Settings nav panel: narrow fixed width, smaller text */
+/* Settings nav panel: dynamic width, smaller text */
 .settings-content [class*="border-r"] {
-  max-width: 100px !important;
-  min-width: 100px !important;
+  min-width: fit-content !important;
+  max-width: 45vw !important;
   flex-shrink: 0 !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;

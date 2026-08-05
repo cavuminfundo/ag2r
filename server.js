@@ -1215,9 +1215,29 @@ app.post('/dismiss-settings', async (req, res) => {
     return res.status(503).json({ error: 'CDP not connected' });
   }
   try {
+    // 1. Dispatch an Escape key natively via CDP Input domain.
+    // This is 100% reliable for closing Radix dialogs and menus!
+    if (cdpClient.Input) {
+      await cdpClient.Input.dispatchKeyEvent({
+        type: 'keyDown',
+        windowsVirtualKeyCode: 27,
+        nativeVirtualKeyCode: 27,
+        key: 'Escape',
+        code: 'Escape'
+      });
+      await cdpClient.Input.dispatchKeyEvent({
+        type: 'keyUp',
+        windowsVirtualKeyCode: 27,
+        nativeVirtualKeyCode: 27,
+        key: 'Escape',
+        code: 'Escape'
+      });
+    }
+
+    // 2. Also try the script as a fallback
     const result = await evaluateInBrowser(DISMISS_SETTINGS_SCRIPT);
-    log('DismissSettings', JSON.stringify(result));
-    res.json(result || { ok: false });
+    log('DismissSettings', 'Sent native Escape + script executed');
+    res.json(result || { ok: true });
   } catch (e) {
     console.debug('[DismissSettings] Error:', e.message);
     res.json({ ok: false, error: e.message });

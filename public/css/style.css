@@ -2864,8 +2864,9 @@ body {
     border: 1px solid var(--border-subtle);
     border-top: none;
     border-radius: 0 0 16px 16px;
-    flex: 0 1 auto;
-    max-height: calc(100vh - 160px);
+    flex: 1;
+    height: 70vh; /* Fixed height to prevent 100% child collapsing */
+    max-height: 800px;
     overflow-y: auto;
   }
 }

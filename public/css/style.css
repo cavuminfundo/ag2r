@@ -234,21 +234,29 @@ body {
 }
 
 /* Override AG's cursor-pointer on right sidebar content so text is selectable.
-   AG's injected Tailwind CSS applies .cursor-pointer { cursor: pointer } to
-   content elements (markdown blocks, file diffs). Override to text cursor so
-   users can select text for commenting. Control elements (tab buttons) keep
-   pointer cursor via the [data-ag-click-id] rule above. */
-#right-sidebar-content .cursor-pointer:not([data-ag-click-id]) {
+   AG's injected Tailwind CSS often wraps entire artifacts in clickable containers
+   (with data-ag-click-id or select-none), making the text unselectable on PC.
+   We force everything to be text-selectable by default, and restore pointer 
+   behavior only for actual interactive elements. */
+#right-sidebar-content, 
+#right-sidebar-content * {
   cursor: text !important;
-}
-#right-sidebar-content .select-none:not([data-ag-click-id]) {
   user-select: text !important;
 }
-#right-sidebar-content a:not([data-ag-click-id]),
-#right-sidebar-content button:not([data-ag-click-id]) {
-  cursor: text !important;
+
+/* Restore pointer for actual interactive elements */
+#right-sidebar-content a,
+#right-sidebar-content button,
+#right-sidebar-content [role="button"],
+#right-sidebar-content [role="tab"],
+#right-sidebar-content svg,
+#right-sidebar-content a *,
+#right-sidebar-content button *,
+#right-sidebar-content [role="button"] *,
+#right-sidebar-content [role="tab"] * {
+  cursor: pointer !important;
   pointer-events: auto !important;
-  user-select: text !important;
+  user-select: none !important;
 }
 
 /* Ensure captured AG content inherits visible colors */

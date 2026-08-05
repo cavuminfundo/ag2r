@@ -136,11 +136,6 @@ window.addEventListener('resize', updateSidebarInertState);
 updateSidebarInertState();
 
 // Initialize the first snapshot logic
-if (window.innerWidth >= 1024) {
-  // on desktop, init resizer right away
-  initSidebarResizer(leftSidebarResizer, true);
-  initSidebarResizer(rightSidebarResizer, false);
-}
 pollCDP();
 
 // Handle ?sidebar=open&conversationId=<id> URL params (from push notification clicks)

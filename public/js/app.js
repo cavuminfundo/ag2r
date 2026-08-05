@@ -3251,5 +3251,39 @@ if (rightResizer) {
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// Left Sidebar Resizing (Desktop)
+// ─────────────────────────────────────────────
+const leftResizer = document.getElementById('left-sidebar-resizer');
+let isResizingLeft = false;
+
+if (leftResizer) {
+  leftResizer.addEventListener('pointerdown', (e) => {
+    isResizingLeft = true;
+    leftResizer.classList.add('is-resizing');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
+    e.preventDefault();
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!isResizingLeft) return;
+    let newWidth = e.clientX;
+    if (newWidth < 200) newWidth = 200;
+    if (newWidth > 600) newWidth = 600;
+    document.documentElement.style.setProperty('--left-sidebar-width', `${newWidth}px`);
+  });
+
+  window.addEventListener('pointerup', () => {
+    if (isResizingLeft) {
+      isResizingLeft = false;
+      leftResizer.classList.remove('is-resizing');
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    }
   });
 }

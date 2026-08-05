@@ -7,8 +7,19 @@ certs/
 .env
 .zsh_session_env
 
+# Docker Persistence & Data
+data/
+
 # Generated / runtime
 *.log
 .DS_Store
 .ag2r-telemetry-id
 vapid-keys.json
+
+# Knowledge Graph (Graphify)
+graphify-out/
+
+# Temporary / Debug files
+scratch*.js
+test_*.js
+*.html

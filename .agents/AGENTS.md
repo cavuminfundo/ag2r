@@ -10,9 +10,6 @@ Before starting any work, consult the project documentation:
 - **Developer Workflow & Git Rules:** Read [docs/workflow.md](file:///home/federico/ag2r/docs/workflow.md) for dev environment setup, `next`/`main` branching, and CI rules.
 - **Product Overview:** Read [README.md](file:///home/federico/ag2r/README.md).
 
-## 🚀 [ALL AGENTS] Session Startup Requirement
-Always run `./_tools/setup-dev.sh` at session start before reading or editing source files.
-
 ## 🧹 [ALL AGENTS] Repository Maintenance & Cleanliness
 To keep the repository clean and updated, all agents MUST adhere to the following rules:
 - **Branch Management:** Always delete local and remote feature branches once they are successfully merged or if they become stale. Keep the branch list minimal.

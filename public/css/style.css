@@ -239,12 +239,16 @@ body {
    users can select text for commenting. Control elements (tab buttons) keep
    pointer cursor via the [data-ag-click-id] rule above. */
 #right-sidebar-content .cursor-pointer:not([data-ag-click-id]) {
-  cursor: text;
+  cursor: text !important;
+}
+#right-sidebar-content .select-none:not([data-ag-click-id]) {
+  user-select: text !important;
 }
 #right-sidebar-content a:not([data-ag-click-id]),
 #right-sidebar-content button:not([data-ag-click-id]) {
-  cursor: text;
-  pointer-events: auto;
+  cursor: text !important;
+  pointer-events: auto !important;
+  user-select: text !important;
 }
 
 /* Ensure captured AG content inherits visible colors */

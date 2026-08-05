@@ -241,7 +241,8 @@ body {
 #right-sidebar-content, 
 #right-sidebar-content * {
   cursor: text !important;
-  user-select: text !important;
+  -webkit-user-select: auto !important;
+  user-select: auto !important;
 }
 
 /* Restore pointer for actual interactive elements */
@@ -256,6 +257,7 @@ body {
 #right-sidebar-content [role="tab"] * {
   cursor: pointer !important;
   pointer-events: auto !important;
+  -webkit-user-select: none !important;
   user-select: none !important;
 }
 

@@ -12,3 +12,11 @@ Before starting any work, consult the project documentation:
 
 ## 🚀 [ALL AGENTS] Session Startup Requirement
 Always run `./_tools/setup-dev.sh` at session start before reading or editing source files.
+
+## 🧹 [ALL AGENTS] Repository Maintenance & Cleanliness
+To keep the repository clean and updated, all agents MUST adhere to the following rules:
+- **Branch Management:** Always delete local and remote feature branches once they are successfully merged or if they become stale. Keep the branch list minimal.
+- **Dependency Health:** Proactively monitor and resolve dependency vulnerabilities (e.g., using `npm audit`). 
+- **Artifact Cleanup:** Never leave temporary scripts, scratch files, or test outputs in the working directory. Store temporary agent data only in `.agents/memory/` or `.gemini/` scratch directories.
+- **Graphify Sync:** Run `graphify update .` after significant refactoring, file additions, or deletions to ensure the architectural knowledge graph remains perfectly synchronized.
+- **Code Quality:** Ensure no dead code or unused files are left behind during refactoring tasks. Remove them proactively.

@@ -28,3 +28,6 @@ The Docker implementation uses the official `node:22-alpine` image.
 - **Network**: Requires `network_mode: host` to connect directly to the CDP instance on `localhost:9000`.
 - **Environment Variables**:
   - `STARTUP_DELAY`: (Default: `0`) Number of seconds to wait before launching the node server, useful for ensuring Antigravity is fully initialized before the connection attempt.
+- **Volumes (Persistence)**:
+  - `/root/.config/ag2r`: Persists VAPID keys and push notification subscriptions.
+  - `/app/certs`: Persists self-signed SSL certificates.

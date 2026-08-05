@@ -2,7 +2,7 @@
 
 # AG2R — Antigravity 2.0 Remote
 
-[![Antigravity Compatibility](https://img.shields.io/badge/Last_tested_with_Antigravity-v2.3.1-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48dGV4dCB4PSIyIiB5PSIxMyIgZm9udC1zaXplPSIxMyI+8J+aqDwvdGV4dD48L3N2Zz4=)](https://antigravity.google/releases) <sub>Not working? See [Branching Strategy](#-branching-strategy)</sub>
+[![Antigravity Compatibility](https://img.shields.io/badge/Last_tested_with_Antigravity-v2.3.1-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48dGV4dCB4PSIyIiB5PSIxMyIgZm9udC1zaXplPSIxMyI+8J+aqDwvdGV4dD48L3N2Zz4=)](https://antigravity.google/releases)
 
 A lightweight mobile remote interface for monitoring and interacting with [Antigravity](https://antigravity.dev) AI coding sessions from your phone — on Wi-Fi, hotspot, or anywhere in the world.
 
@@ -34,22 +34,9 @@ A lightweight mobile remote interface for monitoring and interacting with [Antig
 
 ### Prerequisites
 
-- Node.js 18+
 - Antigravity launched with CDP enabled: `open -a Antigravity --args --remote-debugging-port=9000`
 
-### Quick Start
-
-```bash
-git clone git@github.com:the-future-company/ag2r.git
-cd ag2r
-npm install
-cp .env.example .env
-node server.js
-```
-
-That's it — AG2R is running on `https://localhost:3000`. On first run, a self-signed SSL cert is generated in `certs/`.
-
-### Docker Start (Recommended)
+### Quick Start (Docker)
 
 You can run AG2R instantly using the pre-built Docker image, without needing to install Node.js locally.
 
@@ -63,9 +50,13 @@ services:
     network_mode: host
     environment:
       - STARTUP_DELAY=0
-    # Optional: mount .env for auth and tunnel settings
-    # env_file:
-    #   - .env
+    # Map volumes to persist Push Notification VAPID keys and SSL certs
+    volumes:
+      - ./data:/root/.config/ag2r
+      - ./certs:/app/certs
+    # Required if using Auth or Tunnel
+    env_file:
+      - .env
 ```
 Then run:
 ```bash
@@ -73,86 +64,83 @@ docker compose up -d
 ```
 *Note: `network_mode: host` is required so the container can connect to `localhost:9000` where Antigravity is running.*
 
-By default **auth is off** — no login needed. This is fine for local use. If you're exposing AG2R to the internet (see below), you **must** set a password first.
+---
+
+## 🔒 Configuration (`.env`)
+
+To enable Authentication or Push Notifications, create a `.env` file in the same directory as your `docker-compose.yml`:
+
+```env
+# Enable authentication (Highly Recommended)
+AUTH_ENABLED=true
+APP_PASSWORD=your-super-strong-password
+
+# Optional: Set Cloudflare Tunnel URL if you use one (for push callbacks)
+# TUNNEL_ENABLED=true
+# TUNNEL_URL=https://your-ag2r.yourdomain.com
+```
 
 ---
 
 ## 🌐 How to Connect
 
-### Option 1: Local Network (Same Wi-Fi)
+### Option 1: Local LAN or VPN (Highly Recommended)
 
-No extra setup — just start the server and open it on your phone.
+> [!TIP]
+> **Recommended:** We strongly advise keeping AG2R restricted to your local network or using a secure zero-trust VPN like **Tailscale** or **WireGuard**. Exposing AG2R directly to the public internet is done at your own risk.
 
-1. `node server.js`
-2. Open `https://<your-computer-ip>:3000` on your phone
-3. Accept the self-signed certificate warning
+1. Make sure your phone is on the same Wi-Fi as your server, or connected via Tailscale.
+2. Open `https://<your-server-ip>:3000` (or `https://<tailscale-ip>:3000`) on your phone.
+3. Accept the self-signed certificate warning (this is normal for local connections).
 
-No password needed for local-only use. Your phone must be on the same Wi-Fi as the computer.
-
----
-
-### Option 2: Remote Access (Any Network)
-
-Use a [Cloudflare tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) or preferred tunneling setup to access AG2R from anywhere — no port forwarding needed.
+### Option 2: Remote Access with Cloudflare Tunnel (Advanced)
 
 > [!WARNING]
-> **Set a strong password before exposing AG2R to the internet.** Edit `.env`:
->
-> ```bash
-> AUTH_ENABLED=true
-> APP_PASSWORD=your-strong-password-here
-> ```
+> **Use at your own risk!** Exposing AG2R to the public internet opens potential attack vectors. You **MUST** set a strong `APP_PASSWORD` in your `.env` file before proceeding.
 
-**Step 1 — Start the tunnel** (gets you a public URL):
+If you understand the risks and want to access AG2R without a VPN, you can use a Cloudflare Tunnel sidecar.
 
-```bash
-brew install cloudflared
-cloudflared tunnel --url https://localhost:3000 --no-tls-verify
-```
+**1. Get a Cloudflare Tunnel Token**
+Go to your Cloudflare Zero Trust dashboard -> Networks -> Tunnels. Create a new tunnel, choose "Cloudflared", and copy the token from the installation command.
 
-Cloudflared prints a URL like `https://random-words.trycloudflare.com`.
-
-**Step 2 — Add the URL to `.env`** so push notifications work:
-
-```bash
+**2. Update your `.env`**
+Add the token and the public URL you assigned to the tunnel:
+```env
+AUTH_ENABLED=true
+APP_PASSWORD=your-super-strong-password
 TUNNEL_ENABLED=true
-TUNNEL_URL=https://random-words.trycloudflare.com   # ← paste your URL here
+TUNNEL_URL=https://ag2r.yourdomain.com
+TUNNEL_TOKEN=ey...your...token...here
 ```
 
-**Step 3 — Start AG2R:**
-
-```bash
-node server.js
-```
-
-Open the tunnel URL on your phone. The URL changes each time you restart the tunnel.
----
-
-### Option 3: Stable URL with your own domain
-
-If you have a domain on Cloudflare, you can set up a permanent tunnel so the URL never changes:
-
-```bash
-cloudflared tunnel login
-cloudflared tunnel create ag2r
-cloudflared tunnel route dns ag2r ag2r.yourdomain.com
-```
-
-Create `~/.cloudflared/config.yml`:
+**3. Use the "All-in-One" docker-compose.yml**
+Update your compose file to run Cloudflare alongside AG2R:
 
 ```yaml
-tunnel: <TUNNEL_ID>
-credentials-file: ~/.cloudflared/<TUNNEL_ID>.json
+services:
+  ag2r:
+    image: ghcr.io/cavuminfundo/ag2r:latest
+    container_name: ag2r
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - STARTUP_DELAY=0
+    volumes:
+      - ./data:/root/.config/ag2r
+      - ./certs:/app/certs
+    env_file:
+      - .env
 
-ingress:
-  - hostname: ag2r.yourdomain.com
-    service: https://localhost:3000
-    originRequest:
-      noTLSVerify: true
-  - service: http_status:404
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ag2r_tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
 ```
+*Note: Because AG2R uses `network_mode: host`, Cloudflare will route traffic through the host's port 3000.*
 
-Set `TUNNEL_URL=https://ag2r.yourdomain.com` in `.env`, then run `node server.js` and `cloudflared tunnel run ag2r` in separate terminals.
 
 ## 📱 Features
 
@@ -323,69 +311,8 @@ Trigger Antigravity's slash commands directly from your phone. Tap **+** → **A
 
 ---
 
-## 🔄 Keep It Running (Optional)
 
-A watchdog script can keep AG2R running and auto-update from the branch you're on. It detects the current branch, pulls new commits, and restarts the server when code changes.
 
-```bash
-# Run once to start (or add to cron for auto-recovery)
-./scripts/watchdog.sh
-```
-
-**Cron setup** (checks every 5 minutes):
-
-```bash
-crontab -e
-# Add this line:
-*/5 * * * * cd ~/ag2r && ./scripts/watchdog.sh >> /tmp/ag2r-watchdog.log 2>&1
-```
-
-The watchdog reads configuration from `.env` — no need to pass env vars in the crontab. It auto-detects branch changes: if you switch branches (`git checkout next`), the next watchdog cycle restarts the server with the correct code. Your `.env` is gitignored and persists across branch switches.
-
-The `tunnel-watchdog.sh` script can similarly keep a Cloudflare tunnel alive, and `ag-watchdog.sh` keeps Antigravity itself running with Chrome DevTools Protocol enabled.
-
----
-
-## 🌿 Branching Strategy
-
-| Branch | Purpose | AG Version | Stability |
-|--------|---------|------------|-----------|
-| `main` | Current stable version | See badge above | ✅ Stable |
-| `prev-stable` | Previous stable — frozen snapshot of `main` before the latest merge | v2.2.1 | ✅ Stable |
-| `next` | Bleeding edge — being tested against an upcoming AG version | Latest | ⚠️ May break |
-
-### How it works
-
-When a new Antigravity version ships, the developer's workflow is:
-
-1. Work on `next` to adapt AG2R to the new AG version
-2. Once `next` is working, snapshot `main` → `prev-stable` and merge `next` → `main`
-3. Continue fixing bugs on `next` and merging to `main` until stable
-4. When things settle, `main` and `next` converge to the same state
-
-### Which branch should I use?
-
-**Start with `main`.** It works with the AG version shown in the badge at the top.
-
-If `main` is broken (typically right after a new AG release), use `prev-stable` — it's a frozen snapshot that works with **Antigravity v2.2.1**. Install that AG version from the [releases page](https://antigravity.google/releases) and use `prev-stable` until `main` is updated.
-
-```bash
-# Fall back to the previous stable version
-git checkout prev-stable
-git pull origin prev-stable
-```
-
-If you want the absolute latest (and don't mind occasional breakage):
-
-```bash
-git checkout next
-git pull origin next
-```
-
-> [!WARNING]
-> The `next` branch may be unstable. Use `main` for a reliable experience, or `prev-stable` as a fallback.
-
----
 
 ## 🖼️ Gallery of Additional Views
 

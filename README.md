@@ -6,7 +6,7 @@
 
 A lightweight mobile remote interface for monitoring and interacting with [Antigravity](https://antigravity.dev) AI coding sessions from your phone — on Wi-Fi, hotspot, or anywhere in the world.
 
-> **Note:** This project is a fork of the original AG2R by The Future Company (omercanyy). All credits for the initial creation and core concept go to the original author. This version has been explicitly created to provide a fully Dockerized, easily deployable architecture based on that solid foundation.
+> **Note:** This project is a fork of the original AG2R by The Future Company (omercanyy). All credits for the initial creation and core concept go to the original author. This version has been explicitly created to provide a fully Dockerized, easily deployable architecture based on that solid foundation. It was made for personal use and is provided as-is, to be used entirely at your own risk.
 
 <table align="center">
   <tr>

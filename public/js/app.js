@@ -2260,8 +2260,10 @@ function addClickProxyHandlers(container) {
     // Prevent keyboard dismissal: stop mousedown from stealing focus.
     // But allow textareas to receive focus (e.g. permission write-in) —
     // on mobile, the label can be the target instead of the textarea.
+    // Also skip preventing default in the right sidebar to allow text selection!
     el.addEventListener('mousedown', e => {
       if (e.target.closest('textarea')) return;
+      if (el.closest('#right-sidebar-content')) return;
       e.preventDefault();
     });
 

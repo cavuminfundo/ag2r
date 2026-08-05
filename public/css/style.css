@@ -2755,3 +2755,76 @@ body {
   opacity: 0 !important;
   visibility: hidden !important;
 }
+
+/* ── Desktop Responsive Layout (CSS Grid) ── */
+@media (min-width: 1024px) {
+  #sidebar-toggle,
+  #review-toggle {
+    display: none !important;
+  }
+
+  .app {
+    display: grid !important;
+    grid-template-columns: 280px 1fr 380px;
+    grid-template-rows: var(--header-height) auto 1fr auto;
+  }
+
+  .header {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .left-sidebar {
+    grid-column: 1;
+    grid-row: 2 / span 3;
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100% !important;
+    border-right: 1px solid var(--border-subtle);
+    display: flex !important;
+  }
+
+  .right-sidebar {
+    grid-column: 3;
+    grid-row: 2 / span 3;
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    height: 100% !important;
+    border-left: 1px solid var(--border-subtle);
+    display: flex !important;
+  }
+
+  .subagent-bar {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .chat-area {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  #bottom-bar-wrapper {
+    grid-column: 2;
+    grid-row: 4;
+    background: var(--bg-app);
+  }
+
+  .sidebar-overlay {
+    display: none !important;
+  }
+
+  .quick-actions {
+    left: 280px !important;
+    right: 380px !important;
+    max-width: max(30vw, 40rem) !important;
+    margin: 0 auto !important;
+  }
+
+  .scroll-fab {
+    right: calc(380px + 16px) !important;
+  }
+}

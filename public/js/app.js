@@ -3251,7 +3251,6 @@ if (rightResizer) {
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     }
-    }
   });
 }
 

@@ -3204,3 +3204,19 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+
+// ─────────────────────────────────────────────
+// Desktop Layout Fixes
+// ─────────────────────────────────────────────
+const desktopMql = window.matchMedia('(min-width: 1024px)');
+function handleDesktopInert(e) {
+  if (e.matches) {
+    leftSidebar.inert = false;
+    rightSidebar.inert = false;
+  } else {
+    leftSidebar.inert = !leftSidebar.classList.contains('open');
+    rightSidebar.inert = !rightSidebar.classList.contains('open');
+  }
+}
+desktopMql.addEventListener('change', handleDesktopInert);
+handleDesktopInert(desktopMql);

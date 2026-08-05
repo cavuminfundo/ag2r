@@ -2782,6 +2782,8 @@ body {
     width: 100% !important;
     max-width: none !important;
     height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
     border-right: 1px solid var(--border-subtle);
     display: flex !important;
   }
@@ -2793,6 +2795,8 @@ body {
     transform: none !important;
     width: 100% !important;
     height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
     border-left: 1px solid var(--border-subtle);
     display: flex !important;
   }
@@ -2867,7 +2871,7 @@ body {
   .scheduled-tasks-content,
   .conversation-history-content {
     width: 100% !important;
-    max-width: 700px !important;
+    max-width: 900px !important;
     background: var(--bg-app) !important;
     margin: 0 !important;
   }

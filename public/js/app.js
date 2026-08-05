@@ -135,8 +135,6 @@ function updateSidebarInertState() {
 window.addEventListener('resize', updateSidebarInertState);
 updateSidebarInertState();
 
-// Initialize the first snapshot logic
-pollCDP();
 
 // Handle ?sidebar=open&conversationId=<id> URL params (from push notification clicks)
 // If conversationId is present, navigate directly to that conversation.

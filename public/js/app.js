@@ -122,6 +122,27 @@ const btwPanel = document.getElementById('btw-panel');
 // Suppression: ignore stale dialog/dropdown snapshots for a short window after user dismisses
 let overlayDismissedAt = 0;
 
+// Update sidebar inert state based on viewport width to prevent unclickable sidebars on desktop
+function updateSidebarInertState() {
+  if (window.innerWidth >= 1024) {
+    leftSidebar.inert = false;
+    rightSidebar.inert = false;
+  } else {
+    leftSidebar.inert = !leftSidebar.classList.contains('open');
+    rightSidebar.inert = !rightSidebar.classList.contains('open');
+  }
+}
+window.addEventListener('resize', updateSidebarInertState);
+updateSidebarInertState();
+
+// Initialize the first snapshot logic
+if (window.innerWidth >= 1024) {
+  // on desktop, init resizer right away
+  initSidebarResizer(leftSidebarResizer, true);
+  initSidebarResizer(rightSidebarResizer, false);
+}
+pollCDP();
+
 // Handle ?sidebar=open&conversationId=<id> URL params (from push notification clicks)
 // If conversationId is present, navigate directly to that conversation.
 // Otherwise, just open the left sidebar.

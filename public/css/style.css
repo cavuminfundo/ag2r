@@ -241,8 +241,8 @@ body {
 #right-sidebar-content, 
 #right-sidebar-content * {
   cursor: text !important;
-  -webkit-user-select: auto !important;
-  user-select: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
 }
 
 /* Restore pointer for actual interactive elements */
@@ -257,8 +257,11 @@ body {
 #right-sidebar-content [role="tab"] * {
   cursor: pointer !important;
   pointer-events: auto !important;
-  -webkit-user-select: none !important;
-  user-select: none !important;
+}
+
+/* Prevent Tailwind's active:opacity-* from making the text flash/fade when clicking to select */
+#right-sidebar-content *:not(button):not(a):not([role="button"]):not([role="tab"]):active {
+  opacity: 1 !important;
 }
 
 /* Ensure captured AG content inherits visible colors */

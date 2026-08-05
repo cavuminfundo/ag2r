@@ -74,6 +74,7 @@ To enable Authentication or Push Notifications, create a `.env` file in the same
 # Enable authentication (Highly Recommended)
 AUTH_ENABLED=true
 APP_PASSWORD=your-super-strong-password
+# You can generate a random secret by running: openssl rand -hex 32
 SESSION_SECRET=your-random-secret-key-here
 
 # Optional: Set Cloudflare Tunnel URL if you use one (for push callbacks)
@@ -109,6 +110,7 @@ Add the token and the public URL you assigned to the tunnel:
 ```env
 AUTH_ENABLED=true
 APP_PASSWORD=your-super-strong-password
+# You can generate a random secret by running: openssl rand -hex 32
 SESSION_SECRET=your-random-secret-key-here
 TUNNEL_ENABLED=true
 TUNNEL_URL=https://ag2r.yourdomain.com

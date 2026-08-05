@@ -34,7 +34,24 @@ A lightweight mobile remote interface for monitoring and interacting with [Antig
 
 ### Prerequisites
 
-- Antigravity launched with CDP enabled: `open -a Antigravity --args --remote-debugging-port=9000`
+- Antigravity launched with CDP (Remote Debugging) enabled on port 9000. 
+
+**macOS:**
+```bash
+open -a Antigravity --args --remote-debugging-port=9000
+```
+
+**Linux (Native or AppImage):**
+```bash
+antigravity --remote-debugging-port=9000
+# or
+./Antigravity-x86_64.AppImage --remote-debugging-port=9000
+```
+
+**Windows:**
+```powershell
+Start-Process "C:\Path\To\Antigravity.exe" -ArgumentList "--remote-debugging-port=9000"
+```
 
 ### Quick Start (Docker)
 

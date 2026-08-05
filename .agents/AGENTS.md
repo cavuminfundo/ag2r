@@ -2,7 +2,7 @@
 
 > **AG2R** is a lightweight mobile bridge and remote monitor for Antigravity UI via CDP.
 
-## 📖 Repository Documentation Index
+## 📖 [ALL AGENTS] Repository Documentation Index
 Before starting any work, consult the project documentation:
 
 - **Global Agent Guidelines & Safety:** Refer to `~/.gemini/config/AGENTS.md` for shell rules and agent protocols.
@@ -10,5 +10,5 @@ Before starting any work, consult the project documentation:
 - **Developer Workflow & Git Rules:** Read [docs/workflow.md](file:///home/federico/ag2r/docs/workflow.md) for dev environment setup, `next`/`main` branching, and CI rules.
 - **Product Overview:** Read [README.md](file:///home/federico/ag2r/README.md).
 
-## 🚀 Session Startup Requirement
+## 🚀 [ALL AGENTS] Session Startup Requirement
 Always run `./_tools/setup-dev.sh` at session start before reading or editing source files.

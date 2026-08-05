@@ -12,9 +12,19 @@ AG2R is a lightweight mobile bridge that captures and mirrors Antigravity's UI v
 
 ## 2. Infrastructure & Port Mapping
 
+AG2R is fully containerized and distributed via GitHub Container Registry (`ghcr.io/cavuminfundo/ag2r`).
+
 | Port | Process | Managed By |
 |---|---|---|
-| 3000 | AG2R Production (`main` branch) | `scripts/watchdog.sh` |
+| 3000 | AG2R Production (Docker Container) | `docker-compose` / Dockge |
 | 3001–3099 | Dev/Test Servers (agent sessions) | `_tools/setup-dev.sh` |
 | 3100 | Dev Hub Proxy | `_tools/hub-watchdog.sh` |
 | 9000 | CDP Remote Debugging | `ag-watchdog.sh` |
+
+## 3. Docker Architecture
+
+The Docker implementation uses the official `node:22-alpine` image.
+- **Image**: `ghcr.io/cavuminfundo/ag2r:latest`
+- **Network**: Requires `network_mode: host` to connect directly to the CDP instance on `localhost:9000`.
+- **Environment Variables**:
+  - `STARTUP_DELAY`: (Default: `0`) Number of seconds to wait before launching the node server, useful for ensuring Antigravity is fully initialized before the connection attempt.

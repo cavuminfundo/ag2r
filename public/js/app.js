@@ -3220,3 +3220,36 @@ function handleDesktopInert(e) {
 }
 desktopMql.addEventListener('change', handleDesktopInert);
 handleDesktopInert(desktopMql);
+
+// ─────────────────────────────────────────────
+// Right Sidebar Resizing (Desktop)
+// ─────────────────────────────────────────────
+const rightResizer = document.getElementById('right-sidebar-resizer');
+let isResizingRight = false;
+
+if (rightResizer) {
+  rightResizer.addEventListener('pointerdown', (e) => {
+    isResizingRight = true;
+    rightResizer.classList.add('is-resizing');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
+    e.preventDefault();
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!isResizingRight) return;
+    let newWidth = window.innerWidth - e.clientX;
+    if (newWidth < 280) newWidth = 280;
+    if (newWidth > 800) newWidth = 800;
+    document.documentElement.style.setProperty('--right-sidebar-width', `${newWidth}px`);
+  });
+
+  window.addEventListener('pointerup', () => {
+    if (isResizingRight) {
+      isResizingRight = false;
+      rightResizer.classList.remove('is-resizing');
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    }
+  });
+}

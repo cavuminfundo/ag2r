@@ -6,6 +6,8 @@
 
 A lightweight mobile remote interface for monitoring and interacting with [Antigravity](https://antigravity.dev) AI coding sessions from your phone — on Wi-Fi, hotspot, or anywhere in the world.
 
+> **Note:** This project is a fork of the original AG2R by The Future Company (omercanyy). All credits for the initial creation and core concept go to the original author. This version has been explicitly created to provide a fully Dockerized, easily deployable architecture based on that solid foundation.
+
 <table align="center">
   <tr>
     <td align="center"><img src="docs/chat-implementation-plan-card.png" alt="Live Chat & Plan Approval" width="160" /><br><sub>Live Chat & Plan Approval</sub></td>
@@ -46,6 +48,30 @@ node server.js
 ```
 
 That's it — AG2R is running on `https://localhost:3000`. On first run, a self-signed SSL cert is generated in `certs/`.
+
+### Docker Start (Recommended)
+
+You can run AG2R instantly using the pre-built Docker image, without needing to install Node.js locally.
+
+Create a `docker-compose.yml`:
+```yaml
+services:
+  ag2r:
+    image: ghcr.io/cavuminfundo/ag2r:latest
+    container_name: ag2r
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - STARTUP_DELAY=0
+    # Optional: mount .env for auth and tunnel settings
+    # env_file:
+    #   - .env
+```
+Then run:
+```bash
+docker compose up -d
+```
+*Note: `network_mode: host` is required so the container can connect to `localhost:9000` where Antigravity is running.*
 
 By default **auth is off** — no login needed. This is fine for local use. If you're exposing AG2R to the internet (see below), you **must** set a password first.
 

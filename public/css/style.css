@@ -1878,6 +1878,17 @@ body {
   border: none !important;
 }
 
+/* Force AG's inner settings forms to expand and fill our modal width */
+.settings-content [class*="max-w-"] {
+  max-width: 100% !important;
+}
+
+/* Force AG's sidebar to not add padding for its own missing header */
+.sidebar-fill > * {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
 /* Settings nav panel: dynamic width, smaller text */
 .settings-content [class*="border-r"] {
   min-width: fit-content !important;

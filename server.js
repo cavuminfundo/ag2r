@@ -1148,6 +1148,287 @@ app.post('/navigate-conversation', async (req, res) => {
   }
 });
 
+// --- Get Model List for Native Mobile Selector ---
+app.get('/api/models', async (req, res) => {
+  if (!cdpClient) {
+    return res.status(503).json({ error: 'CDP not connected' });
+  }
+  try {
+    const script = `
+      new Promise(async (resolve) => {
+        try {
+          document.body.click();
+          await new Promise(r => setTimeout(r, 100));
+          
+          const trigger = document.querySelector('[data-testid="model-selector-trigger"]') || document.querySelector('[aria-label*="select model" i]');
+          if (!trigger) return resolve({ ok: false, reason: 'no_trigger' });
+          
+          const clickEl = (el) => {
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            const x = rect.left + Math.min(10, rect.width / 2);
+            const y = rect.top + rect.height / 2;
+            let hit = document.elementFromPoint(x, y);
+            if (!hit || (hit !== el && !el.contains(hit))) {
+              hit = el;
+            }
+            const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+            hit.dispatchEvent(new PointerEvent('pointerover', { ...opts, buttons: 0 }));
+            hit.dispatchEvent(new PointerEvent('pointerenter', { ...opts, buttons: 0 }));
+            hit.dispatchEvent(new PointerEvent('pointerdown', opts));
+            hit.dispatchEvent(new MouseEvent('mousedown', opts));
+            hit.dispatchEvent(new PointerEvent('pointerup', { ...opts, buttons: 0 }));
+            hit.dispatchEvent(new MouseEvent('mouseup', { ...opts, buttons: 0 }));
+            hit.dispatchEvent(new MouseEvent('click', { ...opts, buttons: 0 }));
+            if (typeof el.click === 'function') {
+              try { el.click(); } catch(e) {}
+            }
+          };
+          
+          const hoverEl = (el) => {
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            const x = rect.left + Math.min(10, rect.width / 2);
+            const y = rect.top + rect.height / 2;
+            const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+            el.dispatchEvent(new PointerEvent('pointerover', opts));
+            el.dispatchEvent(new PointerEvent('pointerenter', opts));
+            el.dispatchEvent(new PointerEvent('pointermove', opts));
+            el.dispatchEvent(new MouseEvent('mouseover', opts));
+            el.dispatchEvent(new MouseEvent('mouseenter', opts));
+            el.dispatchEvent(new MouseEvent('mousemove', opts));
+          };
+          
+          clickEl(trigger);
+          await new Promise(r => setTimeout(r, 250));
+          
+          const mainMenu = document.querySelector('[role="menu"]');
+          if (!mainMenu) return resolve({ ok: false, reason: 'no_main_menu' });
+          
+          const mainItems = Array.from(mainMenu.querySelectorAll('[role="menuitem"]'));
+          const fullCatalog = [];
+          const currentText = trigger.textContent.trim();
+          
+          for (let i = 0; i < mainItems.length; i++) {
+            const item = mainItems[i];
+            const baseModelAttr = item.querySelector('[data-model-base]');
+            const mainName = baseModelAttr ? baseModelAttr.getAttribute('data-model-base') : item.textContent.trim().split('\\n')[0];
+            
+            document.body.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 0, clientY: 0 }));
+            await new Promise(r => setTimeout(r, 50));
+            
+            hoverEl(item);
+            await new Promise(r => setTimeout(r, 300));
+            
+            const subMenu = document.querySelector('[data-nested=""]');
+            if (subMenu) {
+              const subItems = Array.from(subMenu.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
+              subItems.forEach((sub, sIdx) => {
+                const subName = sub.textContent.trim();
+                const label = mainName + ' (' + subName + ')';
+                const active = currentText.includes(mainName) && (currentText.includes(subName) || sub.getAttribute('data-checked') === '');
+                fullCatalog.push({ mainIdx: i, subIdx: sIdx, label, active });
+              });
+            } else {
+              const active = currentText.includes(mainName);
+              fullCatalog.push({ mainIdx: i, subIdx: -1, label: mainName, active });
+            }
+          }
+          
+          document.body.click();
+          resolve({ ok: true, current: currentText, models: fullCatalog });
+        } catch(err) {
+          resolve({ ok: false, error: err.message });
+        }
+      })
+    `;
+    const result = await evaluateInBrowser(script);
+    res.json(result || { ok: false });
+  } catch (e) {
+    console.debug('[GetModels] Error:', e.message);
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+// --- Select Model by MainIdx & SubIdx ---
+app.post('/api/select-model', async (req, res) => {
+  const { mainIdx, subIdx } = req.body;
+  if (typeof mainIdx !== 'number') {
+    return res.status(400).json({ error: 'mainIdx is required' });
+  }
+  if (!cdpClient) {
+    return res.status(503).json({ error: 'CDP not connected' });
+  }
+
+  const cdpHardwareClick = async (x, y) => {
+    if (!cdpClient || !cdpClient.Input) return;
+    const roundedX = Math.round(x);
+    const roundedY = Math.round(y);
+    await cdpClient.Input.dispatchMouseEvent({ type: 'mouseMoved', x: roundedX, y: roundedY });
+    await cdpClient.Input.dispatchMouseEvent({ type: 'mousePressed', x: roundedX, y: roundedY, button: 'left', clickCount: 1 });
+    await new Promise(r => setTimeout(r, 45));
+    await cdpClient.Input.dispatchMouseEvent({ type: 'mouseReleased', x: roundedX, y: roundedY, button: 'left', clickCount: 1 });
+  };
+
+  const cdpHardwareHover = async (x, y) => {
+    if (!cdpClient || !cdpClient.Input) return;
+    const roundedX = Math.round(x);
+    const roundedY = Math.round(y);
+    await cdpClient.Input.dispatchMouseEvent({ type: 'mouseMoved', x: roundedX, y: roundedY });
+  };
+
+  try {
+    console.log('[SelectModel] Selecting mainIdx:', mainIdx, 'subIdx:', subIdx);
+
+    // 1. In-page JS selection script
+    const targetSub = typeof subIdx === 'number' ? subIdx : -1;
+    const selectScript = `
+      new Promise((resolve) => {
+        try {
+          const targetMainIdx = ${mainIdx};
+          const targetSubIdx = ${targetSub};
+          
+          document.body.click();
+          
+          setTimeout(() => {
+            const trigger = document.querySelector('[data-testid="model-selector-trigger"]') || document.querySelector('[aria-label*="select model" i]');
+            if (!trigger) return resolve({ ok: false, reason: 'no_trigger' });
+            
+            const fireClick = (el) => {
+              if (!el) return;
+              try { el.focus(); } catch(e) {}
+              const rect = el.getBoundingClientRect();
+              const x = rect.left + rect.width / 2;
+              const y = rect.top + rect.height / 2;
+              const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+              el.dispatchEvent(new PointerEvent('pointerover', opts));
+              el.dispatchEvent(new PointerEvent('pointerenter', opts));
+              el.dispatchEvent(new PointerEvent('pointerdown', opts));
+              el.dispatchEvent(new MouseEvent('mousedown', opts));
+              el.dispatchEvent(new PointerEvent('pointerup', opts));
+              el.dispatchEvent(new MouseEvent('mouseup', opts));
+              el.dispatchEvent(new MouseEvent('click', opts));
+              try { el.click(); } catch(e) {}
+            };
+
+            const fireHover = (el) => {
+              if (!el) return;
+              const rect = el.getBoundingClientRect();
+              const x = rect.left + rect.width / 2;
+              const y = rect.top + rect.height / 2;
+              const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 1, pointerType: 'mouse' };
+              el.dispatchEvent(new PointerEvent('pointerover', opts));
+              el.dispatchEvent(new PointerEvent('pointerenter', opts));
+              el.dispatchEvent(new PointerEvent('pointermove', opts));
+              el.dispatchEvent(new MouseEvent('mouseover', opts));
+              el.dispatchEvent(new MouseEvent('mouseenter', opts));
+              el.dispatchEvent(new MouseEvent('mousemove', opts));
+            };
+
+            fireClick(trigger);
+            
+            setTimeout(() => {
+              const menu = document.querySelector('[role="menu"]');
+              if (!menu) return resolve({ ok: false, reason: 'no_main_menu' });
+              
+              const mainItems = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+              const mainTarget = mainItems[targetMainIdx];
+              if (!mainTarget) return resolve({ ok: false, reason: 'main_item_not_found' });
+              
+              if (targetSubIdx === -1) {
+                fireClick(mainTarget);
+                return resolve({ ok: true, selected: 'main' });
+              }
+              
+              fireHover(mainTarget);
+              
+              setTimeout(() => {
+                const subMenu = document.querySelector('[data-nested=""]');
+                if (subMenu) {
+                  const subItems = Array.from(subMenu.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
+                  const subTarget = subItems[targetSubIdx];
+                  if (subTarget) {
+                    fireClick(subTarget);
+                    return resolve({ ok: true, selected: 'sub' });
+                  }
+                }
+                fireClick(mainTarget);
+                resolve({ ok: true, selected: 'main_fallback' });
+              }, 300);
+            }, 250);
+          }, 100);
+        } catch(err) {
+          resolve({ ok: false, error: err.message });
+        }
+      })
+    `;
+
+    // Execute in-page JS selection
+    const inPageResult = await evaluateInBrowser(selectScript);
+    console.log('[SelectModel] inPageResult:', JSON.stringify(inPageResult));
+
+    // 2. Hardware fallback click sequence via CDP Input
+    const triggerCoords = await evaluateInBrowser(`
+      (() => {
+        const trigger = document.querySelector('[data-testid="model-selector-trigger"]') || document.querySelector('[aria-label*="select model" i]');
+        if (!trigger) return null;
+        const rect = trigger.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      })()
+    `);
+
+    if (triggerCoords) {
+      await cdpHardwareClick(triggerCoords.x, triggerCoords.y);
+      await new Promise(r => setTimeout(r, 200));
+
+      const mainItemCoords = await evaluateInBrowser(`
+        (() => {
+          const menu = document.querySelector('[role="menu"]');
+          if (!menu) return null;
+          const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+          const target = items[${mainIdx}];
+          if (!target) return null;
+          const rect = target.getBoundingClientRect();
+          return { x: rect.left + Math.min(15, rect.width / 2), y: rect.top + rect.height / 2 };
+        })()
+      `);
+
+      if (mainItemCoords) {
+        if (targetSub === -1) {
+          await cdpHardwareClick(mainItemCoords.x, mainItemCoords.y);
+        } else {
+          await cdpHardwareHover(mainItemCoords.x, mainItemCoords.y);
+          await new Promise(r => setTimeout(r, 250));
+
+          const subItemCoords = await evaluateInBrowser(`
+            (() => {
+              const subMenu = document.querySelector('[data-nested=""]');
+              if (!subMenu) return null;
+              const subItems = Array.from(subMenu.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
+              const target = subItems[${targetSub}];
+              if (!target) return null;
+              const rect = target.getBoundingClientRect();
+              return { x: rect.left + Math.min(15, rect.width / 2), y: rect.top + rect.height / 2 };
+            })()
+          `);
+
+          if (subItemCoords) {
+            await cdpHardwareClick(subItemCoords.x, subItemCoords.y);
+          } else {
+            await cdpHardwareClick(mainItemCoords.x, mainItemCoords.y);
+          }
+        }
+      }
+    }
+
+    fireBurstCaptures([200, 500, 1000]);
+    res.json(inPageResult || { ok: true });
+  } catch (e) {
+    console.debug('[SelectModel] Error:', e.message);
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 // --- Copy Response (intercept AG's clipboard.writeText, return markdown) ---
 app.post('/copy-response', async (req, res) => {
   track('code_copied');

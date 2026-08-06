@@ -610,7 +610,7 @@ async function loadSnapshot() {
     // /dismiss-portal round-trip window). 300ms covers the CDP round-trip (~100ms) safely;
     // 2000ms was too long and caused every-other-open to be suppressed.
     const suppressOverlay = Date.now() - overlayDismissedAt < 300;
-    if (data.dropdownHtml && !suppressOverlay) {
+    if (data.dropdownHtml && !suppressOverlay && !isNativeModelPickerOpen) {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = data.dropdownHtml;
       const allBtns = tempDiv.querySelectorAll('[data-ag-click-id]');
@@ -1842,6 +1842,7 @@ leftSidebarOverlay.addEventListener('click', closeLeftSidebar);
 dropdownBackdrop.addEventListener('click', () => {
   overlayDismissedAt = Date.now();
   dropdownOverlay.classList.add('hidden');
+  isNativeModelPickerOpen = false;
   // Dismiss AG's native portal by pressing Escape
   fetchAPI('/dismiss-portal', { method: 'POST' }).catch(() => {});
 });
@@ -2249,6 +2250,89 @@ function renderSidebar(container, html) {
   }
 }
 
+let isNativeModelPickerOpen = false;
+
+async function openNativeModelSelector() {
+  try {
+    isNativeModelPickerOpen = true;
+    const res = await fetchAPI('/api/models');
+    const data = await res.json();
+    if (!data.ok || !data.models) {
+      isNativeModelPickerOpen = false;
+      return;
+    }
+    
+    let html = '<div class="ag2r-dialog-native" style="padding: 12px 16px; font-weight: 600; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.12); color: #ffffff; display:flex; justify-content:space-between; align-items:center;"><span>Seleziona Modello AI</span><button id="close-native-model-picker" style="background:none; border:none; color:#a0a0a0; font-size:20px; cursor:pointer; padding:6px 10px; border-radius:6px;">✕</button></div><div class="native-model-list" style="display:flex; flex-direction:column; gap:4px; padding:8px 0; max-height:60vh; overflow-y:auto;">';
+    
+    data.models.forEach(m => {
+      const activeStyle = m.active 
+        ? 'background: rgba(59, 130, 246, 0.25); border-left: 4px solid #3b82f6; color: #ffffff; font-weight: 600;' 
+        : 'color: #e5e7eb;';
+      const checkmark = m.active ? '<span style="color:#3b82f6; font-weight:bold; font-size:16px;">✓</span>' : '';
+      html += `<button class="native-model-btn" data-main-idx="${m.mainIdx}" data-sub-idx="${m.subIdx}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; padding:12px 16px; background:transparent; border:none; font-size:14px; border-radius:6px; cursor:pointer; touch-action:manipulation; ${activeStyle}">
+        <span>${m.label}</span>
+        ${checkmark}
+      </button>`;
+    });
+    html += '</div>';
+    
+    dropdownContent.style.background = '#181825';
+    dropdownContent.style.backgroundColor = '#181825';
+    dropdownContent.innerHTML = html;
+    dropdownOverlay.classList.remove('hidden');
+    
+    const closeBtn = dropdownContent.querySelector('#close-native-model-picker');
+    if (closeBtn) {
+      const handleClose = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        dropdownOverlay.classList.add('hidden');
+        isNativeModelPickerOpen = false;
+      };
+      closeBtn.addEventListener('click', handleClose);
+      closeBtn.addEventListener('touchend', handleClose);
+    }
+    
+    dropdownContent.querySelectorAll('.native-model-btn').forEach(btn => {
+      let isSelecting = false;
+      const handleSelect = async (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        if (isSelecting) return;
+        isSelecting = true;
+        
+        const mainIdx = parseInt(btn.dataset.mainIdx, 10);
+        const subIdx = parseInt(btn.dataset.subIdx, 10);
+        dropdownOverlay.classList.add('hidden');
+        isNativeModelPickerOpen = false;
+        await fetchAPI('/api/select-model', {
+          method: 'POST',
+          body: JSON.stringify({ mainIdx, subIdx })
+        });
+      };
+      btn.addEventListener('click', handleSelect);
+      btn.addEventListener('touchend', handleSelect);
+    });
+  } catch (err) {
+    isNativeModelPickerOpen = false;
+    console.error('Error opening model selector:', err);
+  }
+}
+
+// Wire #model-chip click to open native model selector
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('#model-chip');
+  if (chip) {
+    e.preventDefault();
+    e.stopPropagation();
+    openNativeModelSelector();
+  }
+});
+
 // ─────────────────────────────────────────────
 // Click Proxying — generic for any container
 // ─────────────────────────────────────────────
@@ -2288,8 +2372,13 @@ function addClickProxyHandlers(container) {
       const clickId = el.dataset.agClickId; // e.g. "chat:5", "right:2"
       const label = el.dataset.agClickLabel || '';
 
-      debugLog('click-proxy', 'id=' + clickId + ' label="' + label + '"' + ' tag=' + el.tagName);
       debugLog('click-proxy', `id=${clickId} label="${label}" tag=${el.tagName}`);
+
+      // Intercept Model Selector button — open native mobile bottom sheet with all models
+      if (clickId === 'model:0' || clickId.startsWith('model:')) {
+        openNativeModelSelector();
+        return;
+      }
 
       // Intercept "Edit task title" pencil icon — single-click name editing
       // Proxy the click (AG enters inline edit mode), then auto-open text input modal
@@ -2376,6 +2465,10 @@ function addClickProxyHandlers(container) {
           body: JSON.stringify({ clickId, label }),
         });
         result = await res.json();
+        if (result?.openNativeModelSelector) {
+          openNativeModelSelector();
+          return;
+        }
         if (clickId.startsWith('dropdown:')) {
           console.debug('[ClickProxy] dropdown result:', JSON.stringify(result));
         }

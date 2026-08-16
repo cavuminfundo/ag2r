@@ -610,7 +610,9 @@ async function loadSnapshot() {
     // /dismiss-portal round-trip window). 300ms covers the CDP round-trip (~100ms) safely;
     // 2000ms was too long and caused every-other-open to be suppressed.
     const suppressOverlay = Date.now() - overlayDismissedAt < 300;
-    if (data.dropdownHtml && !suppressOverlay && !isNativeModelPickerOpen) {
+    if (isNativeModelPickerOpen) {
+      // Do nothing to dropdownOverlay or dropdownContent while native model picker is open
+    } else if (data.dropdownHtml && !suppressOverlay) {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = data.dropdownHtml;
       const allBtns = tempDiv.querySelectorAll('[data-ag-click-id]');
@@ -639,12 +641,12 @@ async function loadSnapshot() {
         dropdownOverlay.classList.remove('hidden');
       }
     } else if (!data.dropdownHtml && !data.dialogHtml) {
-      // Only hide overlay if neither dropdown nor dialog is active
+      // Only hide overlay if neither dropdown nor dialog is active and native picker is not open
       dropdownOverlay.classList.add('hidden');
     }
 
     // Render dialog modal if AG has one open (e.g., delete confirmation, environment selector)
-    if (data.dialogHtml && !suppressOverlay) {
+    if (data.dialogHtml && !suppressOverlay && !isNativeModelPickerOpen) {
       // Dedup: skip re-render if dialog HTML hasn't changed (prevents flicker from polling)
       if (data.dialogHtml !== dropdownContent.dataset.lastDialogHtml) {
         dropdownContent.dataset.lastDialogHtml = data.dialogHtml;
@@ -2276,14 +2278,17 @@ async function openNativeModelSelector() {
       });
     };
 
+    let screenMountedAt = Date.now();
+
     const renderEffortScreen = (model) => {
+      screenMountedAt = Date.now();
       let html = `
         <div class="ag2r-dialog-native" style="padding: 12px 16px; font-weight: 600; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.12); color: #ffffff; display:flex; justify-content:space-between; align-items:center;">
-          <button id="back-to-models-btn" style="background:rgba(255,255,255,0.08); border:none; color:#93c5fd; font-size:13px; font-weight:600; cursor:pointer; padding:6px 12px; border-radius:6px; display:flex; align-items:center; gap:4px; touch-action:manipulation;">
+          <button id="back-to-models-btn" type="button" style="background:rgba(255,255,255,0.08); border:none; color:#93c5fd; font-size:13px; font-weight:600; cursor:pointer; padding:6px 12px; border-radius:6px; display:flex; align-items:center; gap:4px; touch-action:manipulation;">
             <span>‹ Modelli</span>
           </button>
           <span style="font-size:15px; font-weight:600; max-width:55%; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${model.mainName}</span>
-          <button id="close-native-model-picker" style="background:none; border:none; color:#a0a0a0; font-size:20px; cursor:pointer; padding:6px 10px; border-radius:6px;">✕</button>
+          <button id="close-native-model-picker" type="button" style="background:none; border:none; color:#a0a0a0; font-size:20px; cursor:pointer; padding:6px 10px; border-radius:6px; touch-action:manipulation;">✕</button>
         </div>
         <div style="padding: 10px 16px 4px 16px; font-size: 12px; color: #9ca3af; font-weight: 500;">Livello di ragionamento (Thinking Effort)</div>
         <div class="native-model-list" style="display:flex; flex-direction:column; gap:6px; padding:8px 12px; max-height:60vh; overflow-y:auto;">
@@ -2304,8 +2309,8 @@ async function openNativeModelSelector() {
         const meta = effortMeta[opt.name.toLowerCase()] || { icon: '⚙️', desc: '' };
 
         html += `
-          <button class="native-effort-btn" data-main-idx="${model.mainIdx}" data-sub-idx="${opt.subIdx}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; padding:12px 14px; border-radius:8px; cursor:pointer; touch-action:manipulation; ${activeStyle}">
-            <div style="display:flex; flex-direction:column; gap:2px;">
+          <button type="button" class="native-effort-btn" data-main-idx="${model.mainIdx}" data-sub-idx="${opt.subIdx}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; padding:12px 14px; border-radius:8px; cursor:pointer; touch-action:manipulation; ${activeStyle}">
+            <div style="display:flex; flex-direction:column; gap:2px; pointer-events:none;">
               <div style="font-weight:600; font-size:14px; display:flex; align-items:center; gap:6px;">
                 <span>${meta.icon}</span>
                 <span>${opt.label}</span>
@@ -2340,24 +2345,24 @@ async function openNativeModelSelector() {
 
       dropdownContent.querySelectorAll('.native-effort-btn').forEach(btn => {
         let isSelecting = false;
-        const handleSelect = (e) => {
-          if (e) {
-            e.preventDefault();
-            e.stopPropagation();
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (Date.now() - screenMountedAt < 250) {
+            return;
           }
           if (isSelecting) return;
           isSelecting = true;
           const mainIdx = parseInt(btn.dataset.mainIdx, 10);
           const subIdx = parseInt(btn.dataset.subIdx, 10);
           doSelectModel(mainIdx, subIdx);
-        };
-        btn.addEventListener('click', handleSelect);
-        btn.addEventListener('touchend', handleSelect);
+        });
       });
     };
 
     const renderMainScreen = () => {
-      let html = '<div class="ag2r-dialog-native" style="padding: 12px 16px; font-weight: 600; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.12); color: #ffffff; display:flex; justify-content:space-between; align-items:center;"><span>Seleziona Modello AI</span><button id="close-native-model-picker" style="background:none; border:none; color:#a0a0a0; font-size:20px; cursor:pointer; padding:6px 10px; border-radius:6px;">✕</button></div><div class="native-model-list" style="display:flex; flex-direction:column; gap:4px; padding:8px 0; max-height:60vh; overflow-y:auto;">';
+      screenMountedAt = Date.now();
+      let html = '<div class="ag2r-dialog-native" style="padding: 12px 16px; font-weight: 600; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.12); color: #ffffff; display:flex; justify-content:space-between; align-items:center;"><span>Seleziona Modello AI</span><button id="close-native-model-picker" type="button" style="background:none; border:none; color:#a0a0a0; font-size:20px; cursor:pointer; padding:6px 10px; border-radius:6px; touch-action:manipulation;">✕</button></div><div class="native-model-list" style="display:flex; flex-direction:column; gap:4px; padding:8px 0; max-height:60vh; overflow-y:auto;">';
 
       data.models.forEach(m => {
         const activeStyle = m.active 
@@ -2368,17 +2373,17 @@ async function openNativeModelSelector() {
         if (m.hasSubmenu && m.effortOptions && m.effortOptions.length > 0) {
           const activeSubLabel = m.activeSub || 'Medium';
           rightElement = `
-            <div style="display:flex; align-items:center; gap:6px;">
+            <div style="display:flex; align-items:center; gap:6px; pointer-events:none;">
               <span style="font-size:11px; background:rgba(255,255,255,0.12); padding:2px 8px; border-radius:12px; color:#93c5fd; font-weight:500;">${activeSubLabel}</span>
               <span style="color:#9ca3af; font-size:16px; font-weight:bold;">›</span>
             </div>
           `;
         } else if (m.active) {
-          rightElement = '<span style="color:#3b82f6; font-weight:bold; font-size:16px;">✓</span>';
+          rightElement = '<span style="color:#3b82f6; font-weight:bold; font-size:16px; pointer-events:none;">✓</span>';
         }
 
-        html += `<button class="native-model-btn" data-main-idx="${m.mainIdx}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; padding:12px 16px; background:transparent; border:none; font-size:14px; border-radius:6px; cursor:pointer; touch-action:manipulation; ${activeStyle}">
-          <span>${m.mainName}</span>
+        html += `<button type="button" class="native-model-btn" data-main-idx="${m.mainIdx}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; padding:12px 16px; background:transparent; border:none; font-size:14px; border-radius:6px; cursor:pointer; touch-action:manipulation; ${activeStyle}">
+          <span style="pointer-events:none;">${m.mainName}</span>
           ${rightElement}
         </button>`;
       });
@@ -2400,10 +2405,11 @@ async function openNativeModelSelector() {
 
       dropdownContent.querySelectorAll('.native-model-btn').forEach(btn => {
         let isSelecting = false;
-        const handleSelect = (e) => {
-          if (e) {
-            e.preventDefault();
-            e.stopPropagation();
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (Date.now() - screenMountedAt < 250) {
+            return;
           }
           if (isSelecting) return;
           isSelecting = true;
@@ -2414,9 +2420,7 @@ async function openNativeModelSelector() {
           } else {
             doSelectModel(mainIdx, -1);
           }
-        };
-        btn.addEventListener('click', handleSelect);
-        btn.addEventListener('touchend', handleSelect);
+        });
       });
     };
 

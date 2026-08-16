@@ -1157,10 +1157,13 @@ app.get('/api/models', async (req, res) => {
     const script = `
       new Promise(async (resolve) => {
         try {
+          // Dismiss open popups first
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
           document.body.click();
           await new Promise(r => setTimeout(r, 100));
           
-          const trigger = document.querySelector('[data-testid="model-selector-trigger"]') || document.querySelector('[aria-label*="select model" i]');
+          const triggers = Array.from(document.querySelectorAll('[data-testid="model-selector-trigger"], [aria-label*="select model" i], [aria-label*="Select model"]'));
+          const trigger = triggers.find(t => t.offsetParent !== null && t.getBoundingClientRect().width > 0) || triggers[0] || document.querySelector('button[aria-haspopup="menu"]');
           if (!trigger) return resolve({ ok: false, reason: 'no_trigger' });
           
           const clickEl = (el) => {
@@ -1197,6 +1200,9 @@ app.get('/api/models', async (req, res) => {
             el.dispatchEvent(new MouseEvent('mouseover', opts));
             el.dispatchEvent(new MouseEvent('mouseenter', opts));
             el.dispatchEvent(new MouseEvent('mousemove', opts));
+            if (typeof el.focus === 'function') {
+              try { el.focus(); } catch(e) {}
+            }
           };
           
           clickEl(trigger);
@@ -1211,8 +1217,13 @@ app.get('/api/models', async (req, res) => {
           
           for (let i = 0; i < mainItems.length; i++) {
             const item = mainItems[i];
-            const baseModelAttr = item.querySelector('[data-model-base]');
-            const mainName = baseModelAttr ? baseModelAttr.getAttribute('data-model-base') : item.textContent.trim().split('\\n')[0];
+            const itemText = item.textContent.trim();
+            if (itemText.toLowerCase().includes('view usage') || itemText.toLowerCase().includes('usage')) {
+              continue;
+            }
+
+            const baseModelAttr = item.querySelector('[data-model-base]') || item.querySelector('[data-testid="model-selector-effort-group"]');
+            const mainName = baseModelAttr ? (baseModelAttr.getAttribute('data-model-base') || baseModelAttr.textContent.trim()) : itemText.split('\\n')[0];
             
             document.body.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 0, clientY: 0 }));
             await new Promise(r => setTimeout(r, 50));
@@ -1220,21 +1231,41 @@ app.get('/api/models', async (req, res) => {
             hoverEl(item);
             await new Promise(r => setTimeout(r, 300));
             
-            const subMenu = document.querySelector('[data-nested=""]');
+            const allMenus = Array.from(document.querySelectorAll('[role="menu"]'));
+            const subMenu = document.querySelector('[data-nested=""]') || allMenus.find(m => m !== mainMenu);
+            const effortOptions = [];
+            const isMainActive = currentText.toLowerCase().includes(mainName.toLowerCase());
+            let activeSub = null;
+
             if (subMenu) {
-              const subItems = Array.from(subMenu.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
+              const subItems = Array.from(subMenu.querySelectorAll('[role="menuitemradio"], [role="menuitem"]'));
               subItems.forEach((sub, sIdx) => {
-                const subName = sub.textContent.trim();
-                const label = mainName + ' (' + subName + ')';
-                const active = currentText.includes(mainName) && (currentText.includes(subName) || sub.getAttribute('data-checked') === '');
-                fullCatalog.push({ mainIdx: i, subIdx: sIdx, label, active });
+                const effortSpan = sub.querySelector('[data-effort]') || sub.querySelector('[data-testid="model-selector-effort-option"]');
+                const subName = effortSpan ? effortSpan.textContent.trim() : sub.textContent.trim();
+                const isChecked = sub.getAttribute('aria-checked') === 'true' || sub.hasAttribute('data-checked') || sub.getAttribute('data-checked') === '';
+                const active = isChecked || (isMainActive && currentText.toLowerCase().includes(subName.toLowerCase()));
+                if (active) activeSub = subName;
+                effortOptions.push({
+                  subIdx: sIdx,
+                  name: subName,
+                  label: subName,
+                  active
+                });
               });
-            } else {
-              const active = currentText.includes(mainName);
-              fullCatalog.push({ mainIdx: i, subIdx: -1, label: mainName, active });
             }
+
+            fullCatalog.push({
+              mainIdx: i,
+              mainName,
+              label: mainName,
+              active: isMainActive,
+              activeSub: activeSub || (effortOptions.length > 0 ? 'Medium' : null),
+              hasSubmenu: effortOptions.length > 0,
+              effortOptions
+            });
           }
           
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
           document.body.click();
           resolve({ ok: true, current: currentText, models: fullCatalog });
         } catch(err) {
@@ -1266,7 +1297,7 @@ app.post('/api/select-model', async (req, res) => {
     const roundedY = Math.round(y);
     await cdpClient.Input.dispatchMouseEvent({ type: 'mouseMoved', x: roundedX, y: roundedY });
     await cdpClient.Input.dispatchMouseEvent({ type: 'mousePressed', x: roundedX, y: roundedY, button: 'left', clickCount: 1 });
-    await new Promise(r => setTimeout(r, 45));
+    await new Promise(r => setTimeout(r, 60));
     await cdpClient.Input.dispatchMouseEvent({ type: 'mouseReleased', x: roundedX, y: roundedY, button: 'left', clickCount: 1 });
   };
 
@@ -1279,150 +1310,74 @@ app.post('/api/select-model', async (req, res) => {
 
   try {
     console.log('[SelectModel] Selecting mainIdx:', mainIdx, 'subIdx:', subIdx);
-
-    // 1. In-page JS selection script
     const targetSub = typeof subIdx === 'number' ? subIdx : -1;
-    const selectScript = `
-      new Promise((resolve) => {
-        try {
-          const targetMainIdx = ${mainIdx};
-          const targetSubIdx = ${targetSub};
-          
-          document.body.click();
-          
-          setTimeout(() => {
-            const trigger = document.querySelector('[data-testid="model-selector-trigger"]') || document.querySelector('[aria-label*="select model" i]');
-            if (!trigger) return resolve({ ok: false, reason: 'no_trigger' });
-            
-            const fireClick = (el) => {
-              if (!el) return;
-              try { el.focus(); } catch(e) {}
-              const rect = el.getBoundingClientRect();
-              const x = rect.left + rect.width / 2;
-              const y = rect.top + rect.height / 2;
-              const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1, pointerId: 1, pointerType: 'mouse', isPrimary: true };
-              el.dispatchEvent(new PointerEvent('pointerover', opts));
-              el.dispatchEvent(new PointerEvent('pointerenter', opts));
-              el.dispatchEvent(new PointerEvent('pointerdown', opts));
-              el.dispatchEvent(new MouseEvent('mousedown', opts));
-              el.dispatchEvent(new PointerEvent('pointerup', opts));
-              el.dispatchEvent(new MouseEvent('mouseup', opts));
-              el.dispatchEvent(new MouseEvent('click', opts));
-              try { el.click(); } catch(e) {}
-            };
 
-            const fireHover = (el) => {
-              if (!el) return;
-              const rect = el.getBoundingClientRect();
-              const x = rect.left + rect.width / 2;
-              const y = rect.top + rect.height / 2;
-              const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 1, pointerType: 'mouse' };
-              el.dispatchEvent(new PointerEvent('pointerover', opts));
-              el.dispatchEvent(new PointerEvent('pointerenter', opts));
-              el.dispatchEvent(new PointerEvent('pointermove', opts));
-              el.dispatchEvent(new MouseEvent('mouseover', opts));
-              el.dispatchEvent(new MouseEvent('mouseenter', opts));
-              el.dispatchEvent(new MouseEvent('mousemove', opts));
-            };
-
-            fireClick(trigger);
-            
-            setTimeout(() => {
-              const menu = document.querySelector('[role="menu"]');
-              if (!menu) return resolve({ ok: false, reason: 'no_main_menu' });
-              
-              const mainItems = Array.from(menu.querySelectorAll('[role="menuitem"]'));
-              const mainTarget = mainItems[targetMainIdx];
-              if (!mainTarget) return resolve({ ok: false, reason: 'main_item_not_found' });
-              
-              if (targetSubIdx === -1) {
-                fireClick(mainTarget);
-                return resolve({ ok: true, selected: 'main' });
-              }
-              
-              fireHover(mainTarget);
-              
-              setTimeout(() => {
-                const subMenu = document.querySelector('[data-nested=""]');
-                if (subMenu) {
-                  const subItems = Array.from(subMenu.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
-                  const subTarget = subItems[targetSubIdx];
-                  if (subTarget) {
-                    fireClick(subTarget);
-                    return resolve({ ok: true, selected: 'sub' });
-                  }
-                }
-                fireClick(mainTarget);
-                resolve({ ok: true, selected: 'main_fallback' });
-              }, 300);
-            }, 250);
-          }, 100);
-        } catch(err) {
-          resolve({ ok: false, error: err.message });
-        }
-      })
-    `;
-
-    // Execute in-page JS selection
-    const inPageResult = await evaluateInBrowser(selectScript);
-    console.log('[SelectModel] inPageResult:', JSON.stringify(inPageResult));
-
-    // 2. Hardware fallback click sequence via CDP Input
+    // Step 1: Open menu by clicking visible trigger
     const triggerCoords = await evaluateInBrowser(`
       (() => {
-        const trigger = document.querySelector('[data-testid="model-selector-trigger"]') || document.querySelector('[aria-label*="select model" i]');
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+        const triggers = Array.from(document.querySelectorAll('[data-testid="model-selector-trigger"], [aria-label*="select model" i], [aria-label*="Select model"]'));
+        const trigger = triggers.find(t => t.offsetParent !== null && t.getBoundingClientRect().width > 0) || triggers[0] || document.querySelector('button[aria-haspopup="menu"]');
         if (!trigger) return null;
         const rect = trigger.getBoundingClientRect();
         return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
       })()
     `);
 
-    if (triggerCoords) {
-      await cdpHardwareClick(triggerCoords.x, triggerCoords.y);
-      await new Promise(r => setTimeout(r, 200));
+    if (!triggerCoords) {
+      return res.json({ ok: false, error: 'no_trigger_coords' });
+    }
 
-      const mainItemCoords = await evaluateInBrowser(`
+    await cdpHardwareClick(triggerCoords.x, triggerCoords.y);
+    await new Promise(r => setTimeout(r, 300));
+
+    // Step 2: Hover or click main item
+    const mainItemCoords = await evaluateInBrowser(`
+      (() => {
+        const menu = document.querySelector('[role="menu"]');
+        if (!menu) return null;
+        const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+        const target = items[${mainIdx}];
+        if (!target) return null;
+        const rect = target.getBoundingClientRect();
+        return { x: rect.left + Math.min(25, rect.width / 2), y: rect.top + rect.height / 2 };
+      })()
+    `);
+
+    if (!mainItemCoords) {
+      return res.json({ ok: false, error: 'no_main_item_coords' });
+    }
+
+    if (targetSub === -1) {
+      await cdpHardwareClick(mainItemCoords.x, mainItemCoords.y);
+    } else {
+      // Hover main item to open submenu
+      await cdpHardwareHover(mainItemCoords.x, mainItemCoords.y);
+      await new Promise(r => setTimeout(r, 350));
+
+      const subItemCoords = await evaluateInBrowser(`
         (() => {
-          const menu = document.querySelector('[role="menu"]');
-          if (!menu) return null;
-          const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
-          const target = items[${mainIdx}];
+          const allMenus = Array.from(document.querySelectorAll('[role="menu"]'));
+          const mainMenu = document.querySelector('[role="menu"]');
+          const subMenu = document.querySelector('[data-nested=""]') || allMenus.find(m => m !== mainMenu);
+          if (!subMenu) return null;
+          const subItems = Array.from(subMenu.querySelectorAll('[role="menuitemradio"], [role="menuitem"]'));
+          const target = subItems[${targetSub}];
           if (!target) return null;
           const rect = target.getBoundingClientRect();
-          return { x: rect.left + Math.min(15, rect.width / 2), y: rect.top + rect.height / 2 };
+          return { x: rect.left + Math.min(25, rect.width / 2), y: rect.top + rect.height / 2 };
         })()
       `);
 
-      if (mainItemCoords) {
-        if (targetSub === -1) {
-          await cdpHardwareClick(mainItemCoords.x, mainItemCoords.y);
-        } else {
-          await cdpHardwareHover(mainItemCoords.x, mainItemCoords.y);
-          await new Promise(r => setTimeout(r, 250));
-
-          const subItemCoords = await evaluateInBrowser(`
-            (() => {
-              const subMenu = document.querySelector('[data-nested=""]');
-              if (!subMenu) return null;
-              const subItems = Array.from(subMenu.querySelectorAll('[role="menuitem"], [role="menuitemradio"]'));
-              const target = subItems[${targetSub}];
-              if (!target) return null;
-              const rect = target.getBoundingClientRect();
-              return { x: rect.left + Math.min(15, rect.width / 2), y: rect.top + rect.height / 2 };
-            })()
-          `);
-
-          if (subItemCoords) {
-            await cdpHardwareClick(subItemCoords.x, subItemCoords.y);
-          } else {
-            await cdpHardwareClick(mainItemCoords.x, mainItemCoords.y);
-          }
-        }
+      if (subItemCoords) {
+        await cdpHardwareClick(subItemCoords.x, subItemCoords.y);
+      } else {
+        await cdpHardwareClick(mainItemCoords.x, mainItemCoords.y);
       }
     }
 
     fireBurstCaptures([200, 500, 1000]);
-    res.json(inPageResult || { ok: true });
+    res.json({ ok: true });
   } catch (e) {
     console.debug('[SelectModel] Error:', e.message);
     res.json({ ok: false, error: e.message });

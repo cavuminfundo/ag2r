@@ -65,19 +65,19 @@ export function buildMainClickScript(safeClickId, safeLabel) {
           }
         }
       } else if (source === 'dropdown') {
-        // Portal dropdown: body > div[role="listbox"] or nested inside Radix container
+        // Portal dropdown: body > div[role="listbox"], [role="menu"], [role="popover"] or nested inside Radix container
         for (const child of document.body.children) {
-          if (child.getAttribute('role') === 'listbox' && child.textContent.trim()) {
+          const role = child.getAttribute('role');
+          const isDropdown = role === 'listbox' || role === 'menu' || role === 'popover' || child.querySelector('[role="option"], [role="menuitem"], [role="menuitemradio"]');
+          if (isDropdown && child.textContent.trim()) {
             root = child;
             break;
           }
           // Radix wraps portals in ID'd divs — look inside them (matches capture.js logic)
-          if (child.id) {
-            const nested = child.querySelector('[role="listbox"]');
-            if (nested && nested.textContent.trim()) {
-              root = nested;
-              break;
-            }
+          const nested = child.querySelector('[role="listbox"], [role="menu"], [role="popover"], [data-radix-popper-content-wrapper]');
+          if (nested && nested.textContent.trim()) {
+            root = nested;
+            break;
           }
         }
       } else if (source === 'dialog') {
@@ -85,19 +85,20 @@ export function buildMainClickScript(safeClickId, safeLabel) {
         // or Radix-nested: body > div#:rXX: > div[role="dialog"] (new AG Radix pattern)
         for (const child of document.body.children) {
           const cls = child.className || '';
+          const role = child.getAttribute('role');
           if (cls.includes('fixed') && cls.includes('inset-0')) {
             root = child;
             break;
           }
-          if (!root && child.getAttribute('role') === 'dialog') {
+          if (!root && (role === 'dialog' || role === 'popover' || role === 'menu')) {
             root = child;
+            break;
           }
           // Radix portals: dialog nested inside an ID'd wrapper div (matches capture.js logic)
-          if (!root && child.id) {
-            const nested = child.querySelector('[role="dialog"]');
-            if (nested && nested.getBoundingClientRect().width > 0) {
-              root = nested;
-            }
+          const nested = child.querySelector('[role="dialog"], [role="popover"], [role="menu"]');
+          if (nested && nested.getBoundingClientRect().width > 0) {
+            root = nested;
+            break;
           }
         }
       } else if (source === 'settings') {
@@ -256,7 +257,8 @@ export function buildMainClickScript(safeClickId, safeLabel) {
         return { ok: false, reason: 'no_btw_container' };
       } else if (source === 'model') {
         // Model selector button — opens AG's model picker dialog
-        const target = document.querySelector('[aria-label*="Select model"]');
+        const triggers = Array.from(document.querySelectorAll('[data-testid="model-selector-trigger"], [aria-label*="select model" i], [aria-label*="Select model"]'));
+        const target = triggers.find(b => b.offsetParent !== null && b.getBoundingClientRect().width > 0) || triggers[0] || document.querySelector('button[aria-haspopup="menu"]');
         if (target) {
           const actualLabel = (target.textContent || '').trim().substring(0, 50);
           target.click();
@@ -265,7 +267,10 @@ export function buildMainClickScript(safeClickId, safeLabel) {
         return { ok: false, reason: 'model_button_not_found' };
       } else if (source === 'project') {
         // Project dropdown button — opens AG's project picker dialog
-        const target = document.querySelector('[aria-haspopup="dialog"]');
+        const target = document.querySelector('[data-testid="project-selector-trigger"]') ||
+                       document.querySelector('[aria-label*="select project" i]') ||
+                       document.querySelector('[aria-label*="Select project"]') ||
+                       document.querySelector('[aria-haspopup="dialog"]');
         if (target) {
           const actualLabel = (target.textContent || '').trim().substring(0, 50);
           target.click();

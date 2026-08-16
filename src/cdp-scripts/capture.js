@@ -391,24 +391,28 @@ export const CAPTURE_SCRIPT = `
       // The target element for portal detection: either the child itself,
       // or a nested portal inside an ID-wrapped Radix container (div#radix-:rXX:).
       // Radix wraps portals in ID'd divs — we need to look inside them.
-      const targets = child.id
-        ? Array.from(child.querySelectorAll('[role="dialog"], [role="listbox"]'))
-        : [child];
+      const nestedPortals = child.querySelectorAll('[role="dialog"], [role="listbox"], [role="menu"], [role="popover"], [data-radix-popper-content-wrapper]');
+      const targets = nestedPortals.length > 0 ? Array.from(nestedPortals) : [child];
 
       for (const target of targets) {
-        // Dropdown menu (role="listbox")
-        if (!dropdownHtml && target.getAttribute('role') === 'listbox') {
+        const role = target.getAttribute('role');
+        const hasMenuOrOption = target.querySelector('[role="menuitem"], [role="menuitemradio"], [role="option"], [role="menuitemcheckbox"]') !== null;
+        const isDropdownRole = role === 'listbox' || role === 'menu' || hasMenuOrOption;
+
+        // Dropdown menu (role="listbox", role="menu", or container with menu items/options)
+        if (!dropdownHtml && isDropdownRole) {
           const tagged = tagInteractives(target, 'dropdown', true, false);
           const clone = target.cloneNode(true);
           untagAll(tagged);
           dropdownHtml = clone.outerHTML;
+          continue;
         }
 
-        // Dialog/modal (fixed overlay with buttons) or Popover dialog (role="dialog")
+        // Dialog/modal (fixed overlay with buttons) or Popover dialog (role="dialog" or role="popover")
         const cls = (target.className || '').toString();
         const isFixedInset = cls.includes('fixed') && cls.includes('inset-0');
-        const isDialogRole = target.getAttribute('role') === 'dialog';
-        
+        const isDialogRole = role === 'dialog' || role === 'popover';
+
         if (isFixedInset || isDialogRole) {
           // Identify if it's a large settings/preferences modal
           // Check both inner elements and the target itself
@@ -597,7 +601,8 @@ export const CAPTURE_SCRIPT = `
   // -- 13. Extract model name from model selector button --
   let modelName = null;
   try {
-    const modelBtn = document.querySelector('[aria-label*="Select model"]');
+    const modelBtns = Array.from(document.querySelectorAll('[data-testid="model-selector-trigger"], [aria-label*="select model" i], [aria-label*="Select model"]'));
+    const modelBtn = modelBtns.find(b => b.offsetParent !== null && b.getBoundingClientRect().width > 0) || modelBtns[0];
     if (modelBtn) {
       const span = modelBtn.querySelector('span');
       modelName = span ? span.textContent.trim() : (modelBtn.textContent || '').trim();

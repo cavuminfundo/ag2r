@@ -617,8 +617,8 @@ async function loadSnapshot() {
       if (allBtns.length > 0) {
         // Options to hide from dropdown menus (e.g., Rename triggers inline sidebar edit, unusable in AG2R)
         const HIDDEN_DROPDOWN_OPTIONS = /^rename$/i;
-        // Detect typeahead (items have role="option") vs kebab/context menus
-        const isTypeahead = tempDiv.querySelector('[role="option"]') !== null;
+        // Detect typeahead (items have role="option" or role="menuitem") vs kebab/context menus
+        const isTypeahead = tempDiv.querySelector('[role="option"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]') !== null;
         let buttonsHtml = '';
         allBtns.forEach(btn => {
           const text = btn.textContent.trim();
@@ -673,7 +673,8 @@ async function loadSnapshot() {
 
         // Extract title/message from the dialog — look for section headers or short text nodes
         const root = tempDiv.firstElementChild;
-        const isPopover = root && root.getAttribute('role') === 'dialog';
+        const role = root ? root.getAttribute('role') : '';
+        const isPopover = root && (role === 'dialog' || role === 'popover' || role === 'menu' || role === 'listbox' || root.querySelector('[role="menuitem"], [role="option"]') !== null);
 
         if (isPopover) {
           // Popover dialog (environment selector, context menus)
@@ -2261,62 +2262,165 @@ async function openNativeModelSelector() {
       isNativeModelPickerOpen = false;
       return;
     }
-    
-    let html = '<div class="ag2r-dialog-native" style="padding: 12px 16px; font-weight: 600; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.12); color: #ffffff; display:flex; justify-content:space-between; align-items:center;"><span>Seleziona Modello AI</span><button id="close-native-model-picker" style="background:none; border:none; color:#a0a0a0; font-size:20px; cursor:pointer; padding:6px 10px; border-radius:6px;">✕</button></div><div class="native-model-list" style="display:flex; flex-direction:column; gap:4px; padding:8px 0; max-height:60vh; overflow-y:auto;">';
-    
-    data.models.forEach(m => {
-      const activeStyle = m.active 
-        ? 'background: rgba(59, 130, 246, 0.25); border-left: 4px solid #3b82f6; color: #ffffff; font-weight: 600;' 
-        : 'color: #e5e7eb;';
-      const checkmark = m.active ? '<span style="color:#3b82f6; font-weight:bold; font-size:16px;">✓</span>' : '';
-      html += `<button class="native-model-btn" data-main-idx="${m.mainIdx}" data-sub-idx="${m.subIdx}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; padding:12px 16px; background:transparent; border:none; font-size:14px; border-radius:6px; cursor:pointer; touch-action:manipulation; ${activeStyle}">
-        <span>${m.label}</span>
-        ${checkmark}
-      </button>`;
-    });
-    html += '</div>';
-    
-    dropdownContent.style.background = '#181825';
-    dropdownContent.style.backgroundColor = '#181825';
-    dropdownContent.innerHTML = html;
-    dropdownOverlay.classList.remove('hidden');
-    
-    const closeBtn = dropdownContent.querySelector('#close-native-model-picker');
-    if (closeBtn) {
-      const handleClose = (e) => {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        dropdownOverlay.classList.add('hidden');
-        isNativeModelPickerOpen = false;
+
+    const closeModal = () => {
+      dropdownOverlay.classList.add('hidden');
+      isNativeModelPickerOpen = false;
+    };
+
+    const doSelectModel = async (mainIdx, subIdx) => {
+      closeModal();
+      await fetchAPI('/api/select-model', {
+        method: 'POST',
+        body: JSON.stringify({ mainIdx, subIdx })
+      });
+    };
+
+    const renderEffortScreen = (model) => {
+      let html = `
+        <div class="ag2r-dialog-native" style="padding: 12px 16px; font-weight: 600; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.12); color: #ffffff; display:flex; justify-content:space-between; align-items:center;">
+          <button id="back-to-models-btn" style="background:rgba(255,255,255,0.08); border:none; color:#93c5fd; font-size:13px; font-weight:600; cursor:pointer; padding:6px 12px; border-radius:6px; display:flex; align-items:center; gap:4px; touch-action:manipulation;">
+            <span>‹ Modelli</span>
+          </button>
+          <span style="font-size:15px; font-weight:600; max-width:55%; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${model.mainName}</span>
+          <button id="close-native-model-picker" style="background:none; border:none; color:#a0a0a0; font-size:20px; cursor:pointer; padding:6px 10px; border-radius:6px;">✕</button>
+        </div>
+        <div style="padding: 10px 16px 4px 16px; font-size: 12px; color: #9ca3af; font-weight: 500;">Livello di ragionamento (Thinking Effort)</div>
+        <div class="native-model-list" style="display:flex; flex-direction:column; gap:6px; padding:8px 12px; max-height:60vh; overflow-y:auto;">
+      `;
+
+      const effortMeta = {
+        'low': { icon: '⚡', desc: 'Risposte più rapide, minor consumo' },
+        'medium': { icon: '⚖️', desc: 'Bilanciato per compiti standard' },
+        'high': { icon: '🧠', desc: 'Ragionamento approfondito, compiti complessi' }
       };
-      closeBtn.addEventListener('click', handleClose);
-      closeBtn.addEventListener('touchend', handleClose);
-    }
-    
-    dropdownContent.querySelectorAll('.native-model-btn').forEach(btn => {
-      let isSelecting = false;
-      const handleSelect = async (e) => {
-        if (e) {
+
+      model.effortOptions.forEach(opt => {
+        const isCurrentActive = model.active && (opt.active || (model.activeSub && model.activeSub.toLowerCase() === opt.name.toLowerCase()));
+        const activeStyle = isCurrentActive
+          ? 'background: rgba(59, 130, 246, 0.25); border: 1px solid #3b82f6; color: #ffffff;'
+          : 'background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.08); color: #e5e7eb;';
+        const checkmark = isCurrentActive ? '<span style="color:#3b82f6; font-weight:bold; font-size:18px;">✓</span>' : '';
+        const meta = effortMeta[opt.name.toLowerCase()] || { icon: '⚙️', desc: '' };
+
+        html += `
+          <button class="native-effort-btn" data-main-idx="${model.mainIdx}" data-sub-idx="${opt.subIdx}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; padding:12px 14px; border-radius:8px; cursor:pointer; touch-action:manipulation; ${activeStyle}">
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <div style="font-weight:600; font-size:14px; display:flex; align-items:center; gap:6px;">
+                <span>${meta.icon}</span>
+                <span>${opt.label}</span>
+              </div>
+              ${meta.desc ? `<span style="font-size:11px; color:#9ca3af;">${meta.desc}</span>` : ''}
+            </div>
+            ${checkmark}
+          </button>
+        `;
+      });
+
+      html += '</div>';
+      dropdownContent.innerHTML = html;
+
+      const backBtn = dropdownContent.querySelector('#back-to-models-btn');
+      if (backBtn) {
+        backBtn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-        }
-        if (isSelecting) return;
-        isSelecting = true;
-        
-        const mainIdx = parseInt(btn.dataset.mainIdx, 10);
-        const subIdx = parseInt(btn.dataset.subIdx, 10);
-        dropdownOverlay.classList.add('hidden');
-        isNativeModelPickerOpen = false;
-        await fetchAPI('/api/select-model', {
-          method: 'POST',
-          body: JSON.stringify({ mainIdx, subIdx })
+          renderMainScreen();
         });
-      };
-      btn.addEventListener('click', handleSelect);
-      btn.addEventListener('touchend', handleSelect);
-    });
+      }
+
+      const closeBtn = dropdownContent.querySelector('#close-native-model-picker');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          closeModal();
+        });
+      }
+
+      dropdownContent.querySelectorAll('.native-effort-btn').forEach(btn => {
+        let isSelecting = false;
+        const handleSelect = (e) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          if (isSelecting) return;
+          isSelecting = true;
+          const mainIdx = parseInt(btn.dataset.mainIdx, 10);
+          const subIdx = parseInt(btn.dataset.subIdx, 10);
+          doSelectModel(mainIdx, subIdx);
+        };
+        btn.addEventListener('click', handleSelect);
+        btn.addEventListener('touchend', handleSelect);
+      });
+    };
+
+    const renderMainScreen = () => {
+      let html = '<div class="ag2r-dialog-native" style="padding: 12px 16px; font-weight: 600; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.12); color: #ffffff; display:flex; justify-content:space-between; align-items:center;"><span>Seleziona Modello AI</span><button id="close-native-model-picker" style="background:none; border:none; color:#a0a0a0; font-size:20px; cursor:pointer; padding:6px 10px; border-radius:6px;">✕</button></div><div class="native-model-list" style="display:flex; flex-direction:column; gap:4px; padding:8px 0; max-height:60vh; overflow-y:auto;">';
+
+      data.models.forEach(m => {
+        const activeStyle = m.active 
+          ? 'background: rgba(59, 130, 246, 0.25); border-left: 4px solid #3b82f6; color: #ffffff; font-weight: 600;' 
+          : 'color: #e5e7eb;';
+        
+        let rightElement = '';
+        if (m.hasSubmenu && m.effortOptions && m.effortOptions.length > 0) {
+          const activeSubLabel = m.activeSub || 'Medium';
+          rightElement = `
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:11px; background:rgba(255,255,255,0.12); padding:2px 8px; border-radius:12px; color:#93c5fd; font-weight:500;">${activeSubLabel}</span>
+              <span style="color:#9ca3af; font-size:16px; font-weight:bold;">›</span>
+            </div>
+          `;
+        } else if (m.active) {
+          rightElement = '<span style="color:#3b82f6; font-weight:bold; font-size:16px;">✓</span>';
+        }
+
+        html += `<button class="native-model-btn" data-main-idx="${m.mainIdx}" style="display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; padding:12px 16px; background:transparent; border:none; font-size:14px; border-radius:6px; cursor:pointer; touch-action:manipulation; ${activeStyle}">
+          <span>${m.mainName}</span>
+          ${rightElement}
+        </button>`;
+      });
+
+      html += '</div>';
+      dropdownContent.style.background = '#181825';
+      dropdownContent.style.backgroundColor = '#181825';
+      dropdownContent.innerHTML = html;
+      dropdownOverlay.classList.remove('hidden');
+
+      const closeBtn = dropdownContent.querySelector('#close-native-model-picker');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          closeModal();
+        });
+      }
+
+      dropdownContent.querySelectorAll('.native-model-btn').forEach(btn => {
+        let isSelecting = false;
+        const handleSelect = (e) => {
+          if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          if (isSelecting) return;
+          isSelecting = true;
+          const mainIdx = parseInt(btn.dataset.mainIdx, 10);
+          const model = data.models.find(item => item.mainIdx === mainIdx);
+          if (model && model.hasSubmenu && model.effortOptions && model.effortOptions.length > 0) {
+            renderEffortScreen(model);
+          } else {
+            doSelectModel(mainIdx, -1);
+          }
+        };
+        btn.addEventListener('click', handleSelect);
+        btn.addEventListener('touchend', handleSelect);
+      });
+    };
+
+    renderMainScreen();
   } catch (err) {
     isNativeModelPickerOpen = false;
     console.error('Error opening model selector:', err);

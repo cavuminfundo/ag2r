@@ -609,7 +609,7 @@ async function loadSnapshot() {
     // Skip if user just dismissed (prevents stale snapshots from re-opening within the
     // /dismiss-portal round-trip window). 300ms covers the CDP round-trip (~100ms) safely;
     // 2000ms was too long and caused every-other-open to be suppressed.
-    const suppressOverlay = Date.now() - overlayDismissedAt < 300;
+    const suppressOverlay = Date.now() - overlayDismissedAt < 1200;
     if (isNativeModelPickerOpen) {
       // Do nothing to dropdownOverlay or dropdownContent while native model picker is open
     } else if (data.dropdownHtml && !suppressOverlay) {
@@ -2272,6 +2272,7 @@ async function openNativeModelSelector() {
 
     const doSelectModel = async (mainIdx, subIdx) => {
       closeModal();
+      overlayDismissedAt = Date.now();
       await fetchAPI('/api/select-model', {
         method: 'POST',
         body: JSON.stringify({ mainIdx, subIdx })

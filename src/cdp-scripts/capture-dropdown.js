@@ -15,6 +15,12 @@ export function buildCaptureListboxScript() {
                   const role = target.getAttribute('role');
                   const hasItems = target.querySelector('[role="option"], [role="menuitem"], [role="menuitemradio"], button, a') !== null;
                   if ((role === 'listbox' || role === 'menu' || hasItems) && target.getBoundingClientRect().width > 0) {
+                    // Skip model selector menu to prevent desktop menu flash during mobile CDP selection
+                    if (target.querySelector('[data-testid*="model-selector"], [data-model-base], [data-effort]') ||
+                        (target.textContent.includes('Gemini') && target.textContent.includes('Flash')) ||
+                        target.textContent.includes('Claude Sonnet')) {
+                      continue;
+                    }
                     let idx = 0;
                     const tagged = [];
                     target.querySelectorAll('[role="option"], [role="menuitem"], [role="menuitemradio"], button, a').forEach(el => {
@@ -57,6 +63,13 @@ export function buildCaptureKebabMenuScript() {
                   const hasButtons = target.querySelectorAll('button, [role="menuitem"], [role="menuitemradio"], [role="option"]').length > 0;
                   if (!isPopover && !hasButtons) continue;
                   if (target.getBoundingClientRect().width <= 0) continue;
+
+                  // Skip model selector menu to prevent desktop menu flash during mobile CDP selection
+                  if (target.querySelector('[data-testid*="model-selector"], [data-model-base], [data-effort]') ||
+                      (target.textContent.includes('Gemini') && target.textContent.includes('Flash')) ||
+                      target.textContent.includes('Claude Sonnet')) {
+                    continue;
+                  }
 
                   let idx = 0;
                   const tagged = [];
